@@ -27,6 +27,7 @@ enum DataSourceType {
   square
   toast
   csv
+  clover
 }
 
 enum DataSourceStatus {

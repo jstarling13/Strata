@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import DashboardNav from "@/components/dashboard/DashboardNav";
+import TrialBanner from "@/components/dashboard/TrialBanner";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { userId } = await auth();
@@ -14,6 +15,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <DashboardNav orgName={org.name} plan={org.plan} />
+      <TrialBanner
+        trialEndsAt={org.trialEndsAt?.toISOString() ?? null}
+        plan={org.plan}
+      />
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
         {children}
       </main>

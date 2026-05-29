@@ -3,17 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, Users, CreditCard, Settings } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, BookOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/staff", label: "Staff", icon: Users },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/staff", label: "Staff", icon: Users, exact: false },
+  { href: "/dashboard/digests", label: "Digests", icon: BookOpen, exact: false },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard, exact: false },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, exact: false },
 ];
 
 export default function DashboardNav({ orgName, plan }: { orgName: string; plan: string }) {
   const path = usePathname();
+
+  function isActive(href: string, exact: boolean) {
+    return exact ? path === href : path.startsWith(href);
+  }
 
   return (
     <nav className="bg-slate-950 border-b border-slate-800 px-6 sticky top-0 z-40">
@@ -23,17 +29,17 @@ export default function DashboardNav({ orgName, plan }: { orgName: string; plan:
           <div className="h-4 w-px bg-slate-800" />
           <span className="text-slate-400 text-sm truncate max-w-40">{orgName}</span>
           <div className="flex items-center gap-1">
-            {NAV.map(({ href, label, icon: Icon }) => (
+            {NAV.map(({ href, label, icon: Icon, exact }) => (
               <Link
                 key={href}
                 href={href}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  path === href ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:text-slate-100 hover:bg-slate-900"
+                  isActive(href, exact) ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:text-slate-100 hover:bg-slate-900"
                 )}
               >
                 <Icon className="w-4 h-4" />
-                {label}
+                <span className="hidden sm:inline">{label}</span>
               </Link>
             ))}
           </div>
@@ -42,6 +48,7 @@ export default function DashboardNav({ orgName, plan }: { orgName: string; plan:
           <span className={cn(
             "text-xs font-semibold uppercase px-2 py-1 rounded-md",
             plan === "plus" ? "bg-blue-600/20 text-blue-400" :
+            plan === "standard" ? "bg-green-600/20 text-green-400" :
             plan === "trial" ? "bg-yellow-600/20 text-yellow-400" :
             "bg-slate-700 text-slate-400"
           )}>

@@ -35,7 +35,7 @@ export default function OnboardingPage() {
   const [staffCount, setStaffCount] = useState(5);
 
   // Step 2
-  const [dataSource, setDataSource] = useState<"square" | "toast" | "csv" | null>(null);
+  const [dataSource, setDataSource] = useState<"square" | "toast" | "csv" | "clover" | null>(null);
   const [toastApiKey, setToastApiKey] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<any>(null);
@@ -288,6 +288,26 @@ export default function OnboardingPage() {
                     {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Connect"}
                   </button>
                 </div>
+              </div>
+
+              {/* Clover */}
+              <div className={cn("border rounded-2xl p-6 transition-colors", dataSource === "clover" ? "border-blue-500 bg-blue-600/5" : "border-slate-700 bg-slate-900 hover:border-slate-600")}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="font-semibold text-slate-100 mb-0.5">Clover</div>
+                    <div className="text-slate-400 text-sm">One-click OAuth. Works with all Clover restaurant and retail setups.</div>
+                  </div>
+                  {dataSource === "clover" && <CheckCircle className="w-5 h-5 text-blue-400 shrink-0" />}
+                </div>
+                {dataSource === "clover" ? (
+                  <div className="flex items-center gap-2 text-blue-400 text-sm font-medium">
+                    <CheckCircle className="w-4 h-4" /> Connected to Clover
+                  </div>
+                ) : (
+                  <a href="/api/clover/connect" className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                    Connect Clover <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
 
               {/* CSV */}

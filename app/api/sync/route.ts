@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSquareData } from "@/lib/agents/normalize";
+import { normalizeCloverData } from "@/lib/agents/normalize-clover";
 import { runAttribution } from "@/lib/agents/attribution";
 
 export async function POST(req: NextRequest) {
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest) {
     if (dataSource.type === "square") {
       const { accessToken } = dataSource.credentials as { accessToken: string };
       await normalizeSquareData(org.id, accessToken);
+    } else if (dataSource.type === "clover") {
+      const { accessToken, merchantId } = dataSource.credentials as { accessToken: string; merchantId: string };
+      await normalizeCloverData(org.id, accessToken, merchantId);
     }
 
     // Pass lastSyncAt so attribution runs incrementally (only new transactions)
