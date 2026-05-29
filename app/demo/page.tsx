@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, Users, DollarSign, Calendar, ArrowRight, Loader2, Lock } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Calendar, ArrowRight, Loader2, Lock, AlertTriangle } from "lucide-react";
 import { formatCurrency, formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
 import StaffTable from "@/components/dashboard/StaffTable";
 import ShiftHeatmap from "@/components/dashboard/ShiftHeatmap";
 import DemoDigestPanel from "@/components/demo/DemoDigestPanel";
+import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 import Link from "next/link";
 
 export default function DemoPage() {
@@ -118,6 +119,23 @@ export default function DemoPage() {
               {card.sub && <div className="text-slate-500 text-xs mt-1">{card.sub}</div>}
             </div>
           ))}
+        </div>
+
+        {/* Worst shift warning */}
+        {overview.worstShift && (
+          <div className="bg-red-500/5 border border-red-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <p className="text-slate-300 text-sm">
+              <strong className="text-red-400">{dayLabel(overview.worstShift.dayOfWeek)} {shiftSlotLabel(overview.worstShift.shiftSlot)}</strong>
+              {" "}is running at <strong className="text-red-400">{formatPct(overview.worstShift.laborPct)}</strong> labor cost — {Math.round((overview.worstShift.laborPct / overview.laborCostTarget - 1) * 100)}% over your {formatPct(overview.laborCostTarget)} target.
+            </p>
+          </div>
+        )}
+
+        {/* Benchmarks */}
+        <div className="flex flex-wrap gap-3">
+          <RepeatRateBenchmark orgType="restaurant" actual={overview.teamAvgRepeatRate} />
+          <LaborPctBenchmark orgType="restaurant" actual={overview.laborPct} target={overview.laborCostTarget} />
         </div>
 
         {/* Staff table */}

@@ -8,6 +8,7 @@ interface InsightCard {
   title: string;
   body: string;
   type: string;
+  action?: string;
 }
 
 export async function generateWeeklyDigest(orgId: string) {
@@ -134,11 +135,15 @@ export async function sendWeeklyDigestEmail(orgId: string) {
   if (!user) return;
 
   const top3 = insights.slice(0, 3);
+  const topInsight = insights[0];
+  const subject = topInsight
+    ? `${topInsight.title} — your Strata digest is ready`
+    : `Your Strata weekly digest — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
   await resend.emails.send({
     from: FROM,
     to: user,
-    subject: `Your Strata weekly digest is ready — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    subject,
     html: buildDigestEmail(org.name, top3, digest.id),
   });
 
@@ -150,13 +155,22 @@ export async function sendWeeklyDigestEmail(orgId: string) {
 
 function buildDigestEmail(orgName: string, insights: InsightCard[], digestId: string): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://strata.ai";
+  const weekStr = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
   const insightCards = insights
     .map(
       (i) => `
-    <div style="background:#1e293b;border-radius:8px;padding:20px;margin-bottom:16px;">
-      <div style="color:#3B82F6;font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:8px;">${i.type.replace("_", " ")}</div>
-      <div style="color:#f1f5f9;font-size:16px;font-weight:600;margin-bottom:8px;">${i.title}</div>
-      <div style="color:#94a3b8;font-size:14px;line-height:1.6;">${i.body}</div>
+    <div style="background:#1e293b;border-radius:12px;padding:20px 24px;margin-bottom:16px;border:1px solid #334155;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:10px;">
+        ${i.type.replace(/_/g, " ")}
+      </div>
+      <div style="color:#f1f5f9;font-size:16px;font-weight:700;line-height:1.4;margin-bottom:10px;">${i.title}</div>
+      <div style="color:#94a3b8;font-size:14px;line-height:1.65;margin-bottom:${i.action ? "16px" : "0"};">${i.body}</div>
+      ${i.action ? `
+      <div style="background:#1d3657;border:1px solid #2d4f7c;border-radius:8px;padding:14px 16px;">
+        <div style="color:#60a5fa;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Do this</div>
+        <div style="color:#bfdbfe;font-size:14px;line-height:1.6;">${i.action}</div>
+      </div>` : ""}
     </div>`
     )
     .join("");
@@ -165,18 +179,46 @@ function buildDigestEmail(orgName: string, insights: InsightCard[], digestId: st
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="background:#0f172a;font-family:Inter,sans-serif;padding:40px 20px;margin:0;">
-  <div style="max-width:600px;margin:0 auto;">
-    <div style="margin-bottom:32px;">
-      <span style="color:#3B82F6;font-size:20px;font-weight:700;letter-spacing:-0.5px;">Strata</span>
+<body style="background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0;padding:0;">
+  <div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+
+    <!-- Header -->
+    <div style="margin-bottom:8px;">
+      <span style="color:#3B82F6;font-size:18px;font-weight:800;letter-spacing:-0.5px;">Strata</span>
     </div>
-    <h1 style="color:#f1f5f9;font-size:24px;font-weight:700;margin-bottom:8px;">Your weekly performance digest</h1>
-    <p style="color:#94a3b8;font-size:14px;margin-bottom:32px;">${orgName} · Week of ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+
+    <!-- Title block -->
+    <div style="margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #1e293b;">
+      <h1 style="color:#f8fafc;font-size:26px;font-weight:800;margin:0 0 8px;line-height:1.2;">
+        Your weekly performance digest
+      </h1>
+      <p style="color:#64748b;font-size:14px;margin:0;">${orgName} &nbsp;·&nbsp; Week of ${weekStr}</p>
+    </div>
+
+    <!-- Insights -->
     ${insightCards}
-    <div style="margin-top:32px;text-align:center;">
-      <a href="${appUrl}/dashboard" style="background:#3B82F6;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">See full report →</a>
+
+    <!-- CTA -->
+    <div style="margin-top:32px;padding:28px;background:#1e293b;border-radius:16px;text-align:center;">
+      <p style="color:#94a3b8;font-size:14px;margin:0 0 20px;line-height:1.6;">
+        See your shift heatmap, full staff table, and all ${insights.length} insights in your dashboard.
+      </p>
+      <a href="${appUrl}/dashboard" style="background:#3B82F6;color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+        Open dashboard →
+      </a>
     </div>
-    <p style="color:#475569;font-size:12px;margin-top:40px;text-align:center;">Strata · <a href="${appUrl}/dashboard/billing" style="color:#475569;">Manage subscription</a></p>
+
+    <!-- Footer -->
+    <div style="margin-top:32px;text-align:center;">
+      <p style="color:#334155;font-size:12px;line-height:1.6;">
+        Strata &nbsp;·&nbsp;
+        <a href="${appUrl}/dashboard/digests" style="color:#475569;text-decoration:none;">Digest archive</a>
+        &nbsp;·&nbsp;
+        <a href="${appUrl}/dashboard/settings" style="color:#475569;text-decoration:none;">Settings</a>
+        &nbsp;·&nbsp;
+        <a href="${appUrl}/dashboard/billing" style="color:#475569;text-decoration:none;">Billing</a>
+      </p>
+    </div>
   </div>
 </body>
 </html>`;

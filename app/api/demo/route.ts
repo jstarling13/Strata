@@ -41,6 +41,7 @@ export async function GET() {
   );
 
   const bestShift = [...shiftPerformance].sort((a, b) => a.laborPct - b.laborPct)[0];
+  const worstShift = [...shiftPerformance].sort((a, b) => b.laborPct - a.laborPct)[0];
   const teamAvgRepeat = staffStats.reduce((s, m) => s + m.repeatRate, 0) / staffStats.length;
 
   const insights = [
@@ -96,7 +97,12 @@ export async function GET() {
       laborPct: 0.34,
       laborCostTarget: 0.3,
       topStaff: { name: "Maria Santos", repeatRate: 0.68 },
-      bestShift: { dayOfWeek: 5, shiftSlot: "evening" },
+      teamAvgRepeatRate: Math.round(teamAvgRepeat * 1000) / 1000,
+      prevTeamAvgRepeatRate: null,
+      bestShift: { dayOfWeek: bestShift.dayOfWeek, shiftSlot: bestShift.shiftSlot, laborPct: bestShift.laborPct },
+      worstShift: worstShift.laborPct > 0.3
+        ? { dayOfWeek: worstShift.dayOfWeek, shiftSlot: worstShift.shiftSlot, laborPct: worstShift.laborPct }
+        : null,
     },
     staffStats,
     shiftPerformance,
