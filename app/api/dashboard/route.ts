@@ -14,7 +14,10 @@ export async function GET(req: NextRequest) {
   const prevWeek = new Date(weekOf);
   prevWeek.setDate(prevWeek.getDate() - 7);
 
-  const [staffStats, prevStaffStats, shiftPerf, latestDigest, dataSource, allDigests] = await Promise.all([
+  const fourWeeksAgo = new Date(weekOf);
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+  const [staffStats, prevStaffStats, shiftPerf, latestDigest, dataSource, allDigests, revenueHistory] = await Promise.all([
     prisma.staffWeeklyStats.findMany({
       where: { orgId: org.id, weekOf },
       include: { staff: true },
@@ -39,6 +42,12 @@ export async function GET(req: NextRequest) {
       orderBy: { weekOf: "desc" },
       take: 12,
       select: { id: true, weekOf: true, generatedAt: true },
+    }),
+    prisma.staffWeeklyStats.groupBy({
+      by: ["weekOf"],
+      where: { orgId: org.id, weekOf: { gte: fourWeeksAgo } },
+      _sum: { revenue: true },
+      orderBy: { weekOf: "asc" },
     }),
   ]);
 
@@ -98,5 +107,9 @@ export async function GET(req: NextRequest) {
     allDigests,
     lastSyncAt: dataSource?.lastSyncAt,
     hasData: staffStats.length > 0 || shiftPerf.length > 0,
+    revenueTrend: revenueHistory.map((r) => ({
+      weekOf: r.weekOf,
+      revenue: r._sum.revenue ?? 0,
+    })),
   });
 }

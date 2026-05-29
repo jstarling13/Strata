@@ -35,9 +35,16 @@ function timeAgo(dateStr: string) {
   return "just now";
 }
 
+interface Preview {
+  overTargetShiftCount: number;
+  bigDropperCount: number;
+  bigDroppers: Array<{ name: string; drop: number }>;
+}
+
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [plan, setPlan] = useState<string>("");
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,6 +53,7 @@ export default function AlertsPage() {
       .then((d) => {
         setAlerts(d.alerts || []);
         setPlan(d.plan || "");
+        setPreview(d.preview || null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -78,28 +86,66 @@ export default function AlertsPage() {
       </div>
 
       {!isPlus && (
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-blue-600/10 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-6 h-6 text-blue-400" />
-          </div>
-          <h2 className="font-bold text-lg mb-2">Anomaly alerts are a Plus feature</h2>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
-            Get notified immediately when a staff member&apos;s repeat rate drops more than 15% or a shift&apos;s labor cost spikes past 150% of your target.
-          </p>
-          <div className="flex flex-col gap-2 items-center text-sm text-slate-400 mb-6">
-            {["Instant email alerts", "Weekly digest (included)", "Labor cost spike detection", "Repeat rate drop detection", "Priority support"].map((f) => (
-              <div key={f} className="flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-blue-400" />
-                {f}
+        <div className="space-y-4">
+          {/* Real-data preview */}
+          {preview && (preview.overTargetShiftCount > 0 || preview.bigDropperCount > 0) && (
+            <div className="bg-slate-900 border border-orange-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                <span className="text-xs font-semibold text-orange-400 uppercase tracking-wide">Right now — issues Strata can alert you about</span>
               </div>
-            ))}
+              <div className="space-y-2">
+                {preview.overTargetShiftCount > 0 && (
+                  <div className="flex items-center gap-3 bg-slate-800/50 rounded-xl p-3 blur-[2px] select-none">
+                    <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                    <p className="text-sm text-slate-300">
+                      <strong className="text-red-400">{preview.overTargetShiftCount} shift{preview.overTargetShiftCount !== 1 ? "s" : ""}</strong> running &gt;20% over your labor target this week
+                    </p>
+                  </div>
+                )}
+                {preview.bigDroppers.map((d, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-slate-800/50 rounded-xl p-3 blur-[2px] select-none">
+                    <TrendingDown className="w-4 h-4 text-orange-400 shrink-0" />
+                    <p className="text-sm text-slate-300">
+                      <strong className="text-orange-400">{d.name}</strong>&apos;s repeat rate dropped {Math.round(d.drop * 100)}pts vs last week — no one&apos;s noticed yet
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-3">Upgrade to see this in real time and get email alerts before these become expensive problems.</p>
+            </div>
+          )}
+
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-blue-600/10 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-6 h-6 text-blue-400" />
+            </div>
+            <h2 className="font-bold text-lg mb-2">Anomaly alerts are a Plus feature</h2>
+            <p className="text-slate-400 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
+              Get an email the moment a repeat rate drops &gt;15% or labor spikes past 150% of your target — before your weekly digest catches it.
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto mb-6 text-left">
+              {[
+                "Instant email alerts",
+                "Repeat rate drop detection",
+                "Labor cost spike detection",
+                "Up to 4 locations",
+                "Unlimited staff",
+                "Priority support",
+              ].map((f) => (
+                <div key={f} className="flex items-center gap-2 text-sm text-slate-300">
+                  <Zap className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/dashboard/billing"
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            >
+              Upgrade to Plus — starts at $167/mo →
+            </Link>
           </div>
-          <Link
-            href="/dashboard/billing"
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-          >
-            Upgrade to Plus →
-          </Link>
         </div>
       )}
 

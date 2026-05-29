@@ -12,6 +12,7 @@ import QuickWins from "@/components/dashboard/QuickWins";
 import GettingStarted from "@/components/dashboard/GettingStarted";
 import ShareInsight from "@/components/dashboard/ShareInsight";
 import GoalProgress from "@/components/dashboard/GoalProgress";
+import RevenueTrend from "@/components/dashboard/RevenueTrend";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -82,7 +83,7 @@ function DashboardInner() {
     );
   }
 
-  const { overview, staffStats, shiftPerformance, latestDigest, lastSyncAt, org, allDigests, hasData } = data;
+  const { overview, staffStats, shiftPerformance, latestDigest, lastSyncAt, org, allDigests, hasData, revenueTrend } = data;
 
   const repeatTrend = overview.prevTeamAvgRepeatRate !== null
     ? overview.teamAvgRepeatRate - overview.prevTeamAvgRepeatRate
@@ -211,6 +212,9 @@ function DashboardInner() {
         <RepeatRateBenchmark orgType={org.type} actual={overview.teamAvgRepeatRate} />
         <LaborPctBenchmark orgType={org.type} actual={overview.laborPct} target={overview.laborCostTarget} />
       </div>
+
+      {/* Revenue trend */}
+      {revenueTrend?.length >= 2 && <RevenueTrend data={revenueTrend} />}
 
       {/* Quick wins */}
       <QuickWins overview={overview} staffStats={staffStats} latestDigest={latestDigest} />

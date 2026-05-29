@@ -1,124 +1,369 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, TrendingUp, DollarSign, Users } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, CreditCard, Pencil } from "lucide-react";
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { formatCurrency, formatPct, cn } from "@/lib/utils";
+import EditStaffModal from "@/components/dashboard/EditStaffModal";
+
+interface WeekStat {
+  weekOf: string;
+  transactions: number;
+  revenue: number;
+  repeatRate: number;
+  avgTicket: number;
+}
+
+interface Visit {
+  id: string;
+  visitAt: string;
+  saleAmount: number;
+  isRepeat: boolean;
+}
+
+function repeatColor(rate: number) {
+  if (rate >= 0.5) return { text: "text-green-400", bg: "text-green-400 bg-green-400/10", hex: "#4ade80" };
+  if (rate >= 0.3) return { text: "text-yellow-400", bg: "text-yellow-400 bg-yellow-400/10", hex: "#facc15" };
+  return { text: "text-red-400", bg: "text-red-400 bg-red-400/10", hex: "#f87171" };
+}
 
 export default function StaffDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [localName, setLocalName] = useState<{ name: string; role: string } | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    fetch(`/api/staff/${id}`)
+    if (!params.id) return;
+    fetch(`/api/staff/${params.id}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [params.id]);
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
-  if (!data?.staff) return <div className="text-slate-400 py-20 text-center">Staff member not found.</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
-  const { staff, weeklyStats, summary } = data;
+  if (!data?.staff) {
+    return (
+      <div className="text-center py-20 text-slate-400">
+        Staff member not found.{" "}
+        <Link href="/dashboard/staff" className="text-blue-400 hover:underline">Back to staff</Link>
+      </div>
+    );
+  }
 
-  const chartData = weeklyStats.map((w: any) => ({
+  const { staff, weeklyStats, summary, recentVisits } = data;
+  const displayName = localName?.name ?? staff.displayName;
+  const displayRole = localName?.role ?? staff.role;
+
+  const sortedStats: WeekStat[] = [...weeklyStats].sort(
+    (a: WeekStat, b: WeekStat) => new Date(a.weekOf).getTime() - new Date(b.weekOf).getTime()
+  );
+
+  const repeatTrend =
+    sortedStats.length >= 2
+      ? sortedStats[sortedStats.length - 1].repeatRate - sortedStats[sortedStats.length - 2].repeatRate
+      : null;
+
+  const revenueTrend =
+    sortedStats.length >= 2 && sortedStats[sortedStats.length - 2].revenue > 0
+      ? (sortedStats[sortedStats.length - 1].revenue - sortedStats[sortedStats.length - 2].revenue) /
+        sortedStats[sortedStats.length - 2].revenue
+      : null;
+
+  const colors = repeatColor(summary.avgRepeatRate);
+
+  const chartData = sortedStats.map((w) => ({
     week: new Date(w.weekOf).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    repeatRate: Math.round(w.repeatRate * 100),
-    revenue: Math.round(w.revenue),
-    transactions: w.transactions,
+    "Repeat rate": Math.round(w.repeatRate * 100),
+    Revenue: Math.round(w.revenue),
+    Transactions: w.transactions,
   }));
 
-  function repeatRateColor(rate: number) {
-    if (rate >= 0.5) return "text-green-400";
-    if (rate >= 0.3) return "text-yellow-400";
-    return "text-red-400";
-  }
+  const latestWeek = sortedStats[sortedStats.length - 1];
 
   return (
     <div className="space-y-8 max-w-4xl">
-      <div className="flex items-center gap-4">
-        <button onClick={() => router.back()} className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/staff" className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">{displayName}</h1>
+            <p className="text-slate-400 text-sm mt-0.5">{displayRole} · {formatCurrency(staff.hourlyRate)}/hr</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors shrink-0"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          Edit
         </button>
-        <div>
-          <h1 className="text-2xl font-bold">{staff.displayName}</h1>
-          <p className="text-slate-400 text-sm">{staff.role} · ${staff.hourlyRate}/hr</p>
-        </div>
-        <div className={cn("ml-auto text-2xl font-bold", repeatRateColor(summary.avgRepeatRate))}>
-          {formatPct(summary.avgRepeatRate)}
-          <div className="text-xs font-normal text-slate-400">avg repeat rate</div>
-        </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Total revenue", value: formatCurrency(summary.totalRevenue), icon: <DollarSign className="w-5 h-5 text-blue-400" /> },
-          { label: "Total transactions", value: summary.totalTransactions.toLocaleString(), icon: <TrendingUp className="w-5 h-5 text-green-400" /> },
-          { label: "Avg repeat rate", value: formatPct(summary.avgRepeatRate), icon: <Users className="w-5 h-5 text-purple-400" /> },
-        ].map((c) => (
-          <div key={c.label} className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-400 text-xs uppercase tracking-wide font-medium">{c.label}</span>
-              {c.icon}
-            </div>
-            <div className="text-2xl font-bold">{c.value}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">Avg repeat rate</span>
+            <Users className={cn("w-5 h-5", colors.text)} />
           </div>
-        ))}
+          <div className={cn("text-2xl font-bold tabular-nums", colors.text)}>{formatPct(summary.avgRepeatRate)}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-slate-500 text-xs">{sortedStats.length}wk avg</span>
+            {repeatTrend !== null && (
+              <span className={cn("flex items-center gap-0.5 text-xs font-medium", repeatTrend >= 0 ? "text-green-400" : "text-red-400")}>
+                {repeatTrend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {repeatTrend >= 0 ? "+" : ""}{(repeatTrend * 100).toFixed(1)}pts
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">Total revenue</span>
+            <DollarSign className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="text-2xl font-bold tabular-nums">{formatCurrency(summary.totalRevenue)}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-slate-500 text-xs">{sortedStats.length} weeks</span>
+            {revenueTrend !== null && (
+              <span className={cn("flex items-center gap-0.5 text-xs font-medium", revenueTrend >= 0 ? "text-green-400" : "text-red-400")}>
+                {revenueTrend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {revenueTrend >= 0 ? "+" : ""}{(revenueTrend * 100).toFixed(1)}% vs last wk
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">Transactions</span>
+            <ShoppingCart className="w-5 h-5 text-purple-400" />
+          </div>
+          <div className="text-2xl font-bold tabular-nums">{summary.totalTransactions.toLocaleString()}</div>
+          <div className="mt-1 text-slate-500 text-xs">
+            {sortedStats.length > 0
+              ? `~${Math.round(summary.totalTransactions / sortedStats.length)}/week avg`
+              : "—"}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">This week</span>
+            <CreditCard className="w-5 h-5 text-slate-400" />
+          </div>
+          <div className="text-2xl font-bold tabular-nums">
+            {latestWeek ? formatCurrency(latestWeek.revenue) : "—"}
+          </div>
+          <div className="mt-1 text-slate-500 text-xs">
+            {latestWeek ? `${latestWeek.transactions} transactions` : "No current data"}
+          </div>
+        </div>
       </div>
 
-      {/* 8-week trend chart */}
-      {chartData.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-5">8-week repeat rate trend</h2>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="week" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
-              <Tooltip
-                contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
-                itemStyle={{ color: "#3B82F6" }}
-              />
-              <Line type="monotone" dataKey="repeatRate" stroke="#3B82F6" strokeWidth={2} dot={{ fill: "#3B82F6", r: 4 }} name="Repeat rate %" />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Charts */}
+      {chartData.length > 1 && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold">Repeat rate trend</h2>
+              {latestWeek && (
+                <span className={cn("text-xs font-semibold px-2 py-1 rounded-full", colors.bg)}>
+                  {formatPct(latestWeek.repeatRate)} this week
+                </span>
+              )}
+            </div>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="week" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                <Tooltip
+                  contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(v: number) => [`${v}%`, "Repeat rate"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Repeat rate"
+                  stroke={colors.hex}
+                  strokeWidth={2}
+                  dot={{ fill: colors.hex, r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold">Weekly revenue</h2>
+              {latestWeek && (
+                <span className="text-xs font-semibold px-2 py-1 rounded-full text-blue-400 bg-blue-400/10">
+                  {formatCurrency(latestWeek.revenue)} this week
+                </span>
+              )}
+            </div>
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                <defs>
+                  <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="week" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
+                <Tooltip
+                  contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  formatter={(v: number) => [formatCurrency(v), "Revenue"]}
+                />
+                <Area type="monotone" dataKey="Revenue" stroke="#3b82f6" fill="url(#revenueGrad)" strokeWidth={2} dot={{ fill: "#3b82f6", r: 3 }} activeDot={{ r: 5 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
-      {/* Weekly stats table */}
-      {weeklyStats.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800">
-                <th className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wide px-6 py-3">Week</th>
-                <th className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wide py-3">Transactions</th>
-                <th className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wide py-3">Revenue</th>
-                <th className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wide py-3">Repeat rate</th>
-                <th className="text-left text-xs text-slate-500 font-semibold uppercase tracking-wide py-3">Avg ticket</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeklyStats.map((w: any, i: number) => (
-                <tr key={w.id} className={cn("border-b border-slate-800/50", i === weeklyStats.length - 1 && "border-0")}>
-                  <td className="px-6 py-3 text-slate-300">{new Date(w.weekOf).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</td>
-                  <td className="py-3 text-slate-300 tabular-nums">{w.transactions}</td>
-                  <td className="py-3 text-slate-300 tabular-nums">{formatCurrency(w.revenue)}</td>
-                  <td className="py-3">
-                    <span className={cn("text-xs font-semibold tabular-nums", repeatRateColor(w.repeatRate))}>{formatPct(w.repeatRate)}</span>
-                  </td>
-                  <td className="py-3 text-slate-300 tabular-nums">{formatCurrency(w.avgTicket)}</td>
+      {/* Weekly breakdown table */}
+      {sortedStats.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Weekly breakdown</h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3 pl-6 pr-4">Week of</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3">Transactions</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3">Revenue</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3">Avg ticket</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3 pr-6">Repeat rate</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {[...sortedStats].reverse().map((w, i) => {
+                  const isLatest = i === 0;
+                  const rc = repeatColor(w.repeatRate);
+                  return (
+                    <tr key={i} className={cn("border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors", i === sortedStats.length - 1 && "border-0")}>
+                      <td className="pl-6 pr-4 py-3 text-slate-300 font-medium">
+                        {new Date(w.weekOf).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {isLatest && (
+                          <span className="ml-2 text-xs text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded-full">Current</span>
+                        )}
+                      </td>
+                      <td className="py-3 text-slate-300 tabular-nums">{w.transactions.toLocaleString()}</td>
+                      <td className="py-3 text-slate-300 tabular-nums">{formatCurrency(w.revenue)}</td>
+                      <td className="py-3 text-slate-300 tabular-nums">{formatCurrency(w.avgTicket)}</td>
+                      <td className="py-3 pr-6">
+                        <span className={cn("text-xs font-semibold px-2 py-1 rounded-full tabular-nums", rc.bg)}>
+                          {formatPct(w.repeatRate)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {/* Coaching prompt for underperformers */}
+      {summary.avgRepeatRate > 0 && summary.avgRepeatRate < 0.35 && (
+        <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+            <h2 className="text-sm font-semibold text-orange-300">Coaching opportunity</h2>
+          </div>
+          <p className="text-slate-400 text-sm mb-5 leading-relaxed">
+            {displayName.split(" ")[0]}&apos;s {formatPct(summary.avgRepeatRate)} repeat rate means most customers aren&apos;t coming back specifically for them.
+            A 10pt improvement would significantly impact your revenue.
+            Here are 3 questions for your next 1:1:
+          </p>
+          <ol className="space-y-3 mb-5">
+            {[
+              `"Walk me through how you greet a customer — what do you say in the first 30 seconds?"`,
+              `"Do you remember any regulars by name? What do you know about what they like?"`,
+              `"When a customer seems unhappy, what do you do? Can you give me a recent example?"`,
+            ].map((q, i) => (
+              <li key={i} className="flex gap-3 text-sm text-slate-300">
+                <span className="text-orange-400 font-bold shrink-0 w-5">{i + 1}.</span>
+                <span className="italic text-slate-300">{q}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="bg-slate-900 rounded-xl p-3 text-xs text-slate-500 leading-relaxed">
+            Research shows that 3 behaviors drive repeat rate: recognizing customers by name, making personalized recommendations, and recovering from service issues on the spot.
+          </div>
+        </div>
+      )}
+
+      {/* Recent visits */}
+      {recentVisits?.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Recent customer visits</h2>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3 pl-6">Date & time</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3">Sale</th>
+                  <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 py-3 pr-6">Customer type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(recentVisits as Visit[]).map((v, i) => (
+                  <tr key={v.id} className={cn("border-b border-slate-800/50", i === (recentVisits as Visit[]).length - 1 && "border-0")}>
+                    <td className="pl-6 py-3 text-slate-300">
+                      {new Date(v.visitAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </td>
+                    <td className="py-3 text-slate-300 tabular-nums">{formatCurrency(v.saleAmount)}</td>
+                    <td className="py-3 pr-6">
+                      <span className={cn("text-xs font-semibold px-2 py-1 rounded-full", v.isRepeat ? "text-green-400 bg-green-400/10" : "text-slate-400 bg-slate-700/50")}>
+                        {v.isRepeat ? "Repeat customer" : "New customer"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {sortedStats.length === 0 && !recentVisits?.length && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center text-slate-500">
+          No performance data yet for this staff member. Sync your POS to see metrics.
+        </div>
+      )}
+
+      {editing && (
+        <EditStaffModal
+          staff={{ id: staff.id, name: displayName, role: displayRole }}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => {
+            setLocalName(updated);
+            setEditing(false);
+          }}
+        />
       )}
     </div>
   );

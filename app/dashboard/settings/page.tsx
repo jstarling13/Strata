@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Check, Building2, Target, Database, CreditCard, ExternalLink } from "lucide-react";
+import { Loader2, Check, Building2, Target, Database, CreditCard, ExternalLink, Bell } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,9 @@ export default function SettingsPage() {
   const [laborTarget, setLaborTarget] = useState(30);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [digestDay, setDigestDay] = useState(1); // Monday
+  const [alertEmail, setAlertEmail] = useState(true);
+  const [alertThreshold, setAlertThreshold] = useState(20); // 20% over target
 
   useEffect(() => {
     fetch("/api/settings")
@@ -27,6 +30,14 @@ export default function SettingsPage() {
         setLaborTarget(Math.round(d.org.laborCostTarget * 100));
       })
       .finally(() => setLoading(false));
+
+    // Load notification prefs from localStorage
+    try {
+      const prefs = JSON.parse(localStorage.getItem("strata_notif_prefs") || "{}");
+      if (prefs.digestDay != null) setDigestDay(prefs.digestDay);
+      if (prefs.alertEmail != null) setAlertEmail(prefs.alertEmail);
+      if (prefs.alertThreshold != null) setAlertThreshold(prefs.alertThreshold);
+    } catch {}
   }, []);
 
   async function save() {
@@ -38,6 +49,8 @@ export default function SettingsPage() {
         body: JSON.stringify({ name, laborCostTarget: laborTarget / 100 }),
       });
       if (res.ok) {
+        // Persist notification prefs locally
+        localStorage.setItem("strata_notif_prefs", JSON.stringify({ digestDay, alertEmail, alertThreshold }));
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }
@@ -45,6 +58,8 @@ export default function SettingsPage() {
       setSaving(false);
     }
   }
+
+  const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   if (loading) {
     return (
@@ -155,6 +170,75 @@ export default function SettingsPage() {
               </Link>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Notification preferences */}
+      <section className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800">
+          <Bell className="w-4 h-4 text-slate-400" />
+          <h2 className="font-semibold text-sm">Notifications</h2>
+        </div>
+        <div className="p-6 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Weekly digest delivery day</label>
+            <p className="text-xs text-slate-500 mb-2">Your AI digest email will be sent on this day each week.</p>
+            <div className="flex flex-wrap gap-2">
+              {DAY_NAMES.map((day, i) => (
+                <button
+                  key={i}
+                  onClick={() => setDigestDay(i)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    digestDay === i
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-800 text-slate-400 hover:text-slate-300"
+                  )}
+                >
+                  {day.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-300">Labor alert emails</label>
+                <p className="text-xs text-slate-500 mt-0.5">Get an email when a shift runs over your labor target.</p>
+              </div>
+              <button
+                onClick={() => setAlertEmail(!alertEmail)}
+                className={cn(
+                  "relative w-11 h-6 rounded-full transition-colors",
+                  alertEmail ? "bg-blue-600" : "bg-slate-700"
+                )}
+              >
+                <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform", alertEmail && "translate-x-5")} />
+              </button>
+            </div>
+
+            {alertEmail && (
+              <div className="mt-3">
+                <label className="block text-xs text-slate-500 mb-2">Alert threshold — send when labor is over target by:</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min={5}
+                    max={50}
+                    step={5}
+                    value={alertThreshold}
+                    onChange={(e) => setAlertThreshold(parseInt(e.target.value))}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <span className="text-blue-400 font-bold text-sm w-12 text-right">+{alertThreshold}%</span>
+                </div>
+                <p className="text-xs text-slate-600 mt-1.5">
+                  You&apos;ll be alerted when any shift runs at {laborTarget + alertThreshold}%+ labor cost.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

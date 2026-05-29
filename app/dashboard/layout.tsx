@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         trialEndsAt={org.trialEndsAt?.toISOString() ?? null}
         plan={org.plan}
       />
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 pb-24 md:pb-8">
         {children}
       </main>
     </div>
