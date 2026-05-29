@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import StaffTable from "@/components/dashboard/StaffTable";
+import StaffComparison from "@/components/dashboard/StaffComparison";
 import { formatPct, cn } from "@/lib/utils";
 
 interface StaffRow {
@@ -68,14 +69,17 @@ export default function StaffPage() {
             {staff.length} staff member{staff.length !== 1 ? "s" : ""} · this week
           </p>
         </div>
-        <button
-          onClick={exportCSV}
-          disabled={downloading || !staff.length}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          {downloading ? "Exporting…" : "Export CSV"}
-        </button>
+        <div className="flex items-center gap-3">
+          <StaffComparison staff={staff} />
+          <button
+            onClick={exportCSV}
+            disabled={downloading || !staff.length}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            {downloading ? "Exporting…" : "Export CSV"}
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}

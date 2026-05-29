@@ -11,6 +11,7 @@ import DigestPanel from "@/components/dashboard/DigestPanel";
 import QuickWins from "@/components/dashboard/QuickWins";
 import GettingStarted from "@/components/dashboard/GettingStarted";
 import ShareInsight from "@/components/dashboard/ShareInsight";
+import GoalProgress from "@/components/dashboard/GoalProgress";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -225,8 +226,17 @@ function DashboardInner() {
         <StaffTable staff={staffStats} />
       </div>
 
-      {/* Heatmap + digest */}
-      <div className="grid lg:grid-cols-2 gap-8">
+      {/* Goal progress + heatmap + digest */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Your goals</h2>
+          <GoalProgress
+            current={overview.teamAvgRepeatRate}
+            prev={overview.prevTeamAvgRepeatRate}
+            laborPct={overview.laborPct}
+            laborTarget={overview.laborCostTarget}
+          />
+        </div>
         <div>
           <h2 className="text-lg font-semibold mb-4">Shift profitability heatmap</h2>
           <ShiftHeatmap shifts={shiftPerformance} target={overview.laborCostTarget} />
