@@ -71,6 +71,8 @@ export async function GET(req: NextRequest) {
       ? prevStaffStats.reduce((s, m) => s + m.repeatRate, 0) / prevStaffStats.length
       : null;
 
+  const prevWeekRevenue = prevStaffStats.reduce((s, m) => s + m.revenue, 0);
+
   return NextResponse.json({
     org: {
       id: org.id,
@@ -82,6 +84,7 @@ export async function GET(req: NextRequest) {
     },
     overview: {
       weeklyRevenue: totalRevenue,
+      prevWeekRevenue: prevStaffStats.length > 0 ? prevWeekRevenue : null,
       laborPct,
       laborCostTarget: org.laborCostTarget,
       teamAvgRepeatRate,

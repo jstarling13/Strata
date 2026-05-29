@@ -13,6 +13,8 @@ import GettingStarted from "@/components/dashboard/GettingStarted";
 import ShareInsight from "@/components/dashboard/ShareInsight";
 import GoalProgress from "@/components/dashboard/GoalProgress";
 import RevenueTrend from "@/components/dashboard/RevenueTrend";
+import SchedulingTips from "@/components/dashboard/SchedulingTips";
+import WeekSummary from "@/components/dashboard/WeekSummary";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -207,6 +209,16 @@ function DashboardInner() {
         ))}
       </div>
 
+      {/* Week comparison summary */}
+      <WeekSummary
+        weeklyRevenue={overview.weeklyRevenue}
+        prevWeekRevenue={overview.prevWeekRevenue ?? null}
+        laborPct={overview.laborPct}
+        laborCostTarget={overview.laborCostTarget}
+        teamAvgRepeatRate={overview.teamAvgRepeatRate}
+        prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate}
+      />
+
       {/* Benchmarks row */}
       <div className="flex flex-wrap gap-3">
         <RepeatRateBenchmark orgType={org.type} actual={overview.teamAvgRepeatRate} />
@@ -229,6 +241,13 @@ function DashboardInner() {
         </div>
         <StaffTable staff={staffStats} />
       </div>
+
+      {/* Scheduling tips */}
+      <SchedulingTips
+        shiftPerformance={shiftPerformance}
+        staffStats={staffStats}
+        laborCostTarget={overview.laborCostTarget}
+      />
 
       {/* Goal progress + heatmap + digest */}
       <div className="grid lg:grid-cols-3 gap-8">

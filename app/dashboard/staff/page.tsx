@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import StaffTable from "@/components/dashboard/StaffTable";
 import StaffComparison from "@/components/dashboard/StaffComparison";
+import StaffLeaderboard from "@/components/dashboard/StaffLeaderboard";
 import { formatPct, cn } from "@/lib/utils";
 
 interface StaffRow {
@@ -122,12 +123,19 @@ export default function StaffPage() {
         </div>
       )}
 
-      <StaffTable staff={staff} />
-
-      {staff.length > 0 && (
-        <p className="text-slate-600 text-xs">
-          Click any row to see 8-week trends and transaction history. Hover a name to edit.
-        </p>
+      {/* Leaderboard + full table in 2-col on larger screens */}
+      {staff.length > 0 ? (
+        <div className="grid lg:grid-cols-[340px_1fr] gap-8 items-start">
+          <StaffLeaderboard staff={staff} />
+          <div>
+            <StaffTable staff={staff} />
+            <p className="text-slate-600 text-xs mt-3">
+              Click any row to see 8-week trends and transaction history. Hover a name to edit.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <StaffTable staff={staff} />
       )}
     </div>
   );
