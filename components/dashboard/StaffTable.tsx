@@ -58,6 +58,16 @@ export default function StaffTable({ staff, isDemo }: { staff: StaffRow[]; isDem
     </th>
   );
 
+  // Revenue gap: estimate how much more revenue a staff member would generate
+  // if they had the top performer's repeat rate, based on their transaction volume
+  const topRate = Math.max(...staff.map((s) => s.repeatRate));
+  function revenueGap(s: StaffRow): number {
+    if (s.repeatRate >= topRate || topRate <= 0) return 0;
+    const rateDiff = topRate - s.repeatRate;
+    // Conservative model: each 1pt repeat rate → ~1% more revenue
+    return Math.round(s.revenue * rateDiff * 12); // annualized
+  }
+
   if (!staff.length) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center text-slate-500">
@@ -79,6 +89,9 @@ export default function StaffTable({ staff, isDemo }: { staff: StaffRow[]; isDem
               {colHeader("Avg ticket", "avgTicket")}
               {colHeader("Repeat rate", "repeatRate")}
               {colHeader("Revenue", "revenue")}
+              <th className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 pb-3 hidden lg:table-cell" title="Estimated annual revenue gap vs. your top performer">
+                <span className="text-slate-600">Gap vs. top</span>
+              </th>
               <th />
             </tr>
           </thead>
@@ -121,6 +134,18 @@ export default function StaffTable({ staff, isDemo }: { staff: StaffRow[]; isDem
                     </div>
                   </td>
                   <td className="py-4 text-slate-300 text-sm tabular-nums">{formatCurrency(s.revenue)}</td>
+                  <td className="py-4 hidden lg:table-cell">
+                    {revenueGap(s) > 0 ? (
+                      <div>
+                        <span className="text-red-400 text-xs font-semibold tabular-nums">
+                          −{formatCurrency(revenueGap(s))}/yr
+                        </span>
+                        <div className="text-slate-600 text-xs mt-0.5">vs. top performer</div>
+                      </div>
+                    ) : (
+                      <span className="text-green-400 text-xs font-semibold">Top performer</span>
+                    )}
+                  </td>
                   <td className="pr-4 py-4">
                     {isDemo ? (
                       <span className="text-slate-700"><ChevronRight className="w-4 h-4" /></span>

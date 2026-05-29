@@ -55,6 +55,34 @@ export default function AnalyticsPage() {
   const prevRevenue = revenueTrend?.[revenueTrend.length - 2]?.revenue ?? 0;
   const revenueChange = prevRevenue > 0 ? (latestRevenue - prevRevenue) / prevRevenue : 0;
 
+  // Compute top opportunities
+  const opportunities: { title: string; detail: string; impact: string; color: string }[] = [];
+  if (staffStats?.length >= 2) {
+    const sortedByRepeat = [...staffStats].sort((a: any, b: any) => b.repeatRate - a.repeatRate);
+    const top = sortedByRepeat[0];
+    const bottom = sortedByRepeat[sortedByRepeat.length - 1];
+    const rateDiff = (top.repeatRate - bottom.repeatRate);
+    if (rateDiff > 0.1) {
+      const annualGap = Math.round(bottom.revenue * rateDiff * 12);
+      opportunities.push({
+        title: `${bottom.name} has a ${Math.round(bottom.repeatRate * 100)}% repeat rate vs. ${top.name}'s ${Math.round(top.repeatRate * 100)}%`,
+        detail: `If ${bottom.name} matched ${top.name}'s repeat rate, the estimated annual revenue gap closes by approximately ${formatCurrency(annualGap)}.`,
+        impact: `${formatCurrency(annualGap)}/yr`,
+        color: "border-orange-500/30 bg-orange-500/5",
+      });
+    }
+  }
+  if (overview?.laborPct > overview?.laborCostTarget * 1.05) {
+    const weeklyGap = (latestRevenue || 0) * (overview.laborPct - overview.laborCostTarget);
+    const monthlyGap = weeklyGap * 4.3;
+    opportunities.push({
+      title: `Labor cost is ${Math.round((overview.laborPct - overview.laborCostTarget) * 100)}pts above your ${Math.round(overview.laborCostTarget * 100)}% target`,
+      detail: `At current revenue levels, closing this gap would save approximately ${formatCurrency(monthlyGap)}/month in labor overspend.`,
+      impact: `${formatCurrency(monthlyGap)}/mo`,
+      color: "border-red-500/30 bg-red-500/5",
+    });
+  }
+
   return (
     <div className="space-y-10 max-w-5xl">
       <div className="flex items-start justify-between gap-4">
@@ -71,6 +99,24 @@ export default function AnalyticsPage() {
           {exporting ? "Exporting…" : "Export report"}
         </button>
       </div>
+
+      {/* Top opportunities */}
+      {opportunities.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Your top opportunities</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {opportunities.map((opp, i) => (
+              <div key={i} className={cn("border rounded-2xl p-5", opp.color)}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-100 leading-snug">{opp.title}</h3>
+                  <span className="shrink-0 text-sm font-bold text-red-300 tabular-nums whitespace-nowrap">{opp.impact}</span>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">{opp.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Revenue trend */}
       {revenueChartData.length > 1 && (

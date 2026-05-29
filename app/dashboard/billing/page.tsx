@@ -77,14 +77,33 @@ export default function BillingPage() {
   const currentPlan = org?.plan;
   const trialEndsAt = org?.trialEndsAt ? new Date(org.trialEndsAt) : null;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86400000)) : 0;
+  const isUrgent = daysLeft <= 3;
 
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold">Billing</h1>
         {currentPlan === "trial" && trialEndsAt && (
-          <div className="mt-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3 text-yellow-300 text-sm">
-            Your free trial ends in <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""}</strong>. Add a payment method to keep access to your data.
+          <div className={`mt-3 border rounded-xl px-5 py-4 ${isUrgent ? "bg-red-500/10 border-red-500/30" : "bg-yellow-500/10 border-yellow-500/20"}`}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className={`text-sm font-semibold ${isUrgent ? "text-red-300" : "text-yellow-300"}`}>
+                  {isUrgent && daysLeft === 0
+                    ? "⚠️ Your trial ends today"
+                    : `${isUrgent ? "⚠️ " : ""}Trial ends in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
+                </p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  After expiry, your insights are archived — not deleted. Upgrade any time to resume.
+                </p>
+              </div>
+              <button
+                onClick={() => handleSelectPlan("standard")}
+                disabled={loading}
+                className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Upgrade now →
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -156,13 +175,16 @@ export default function BillingPage() {
                   <CreditCard className="w-4 h-4" /> Manage billing
                 </button>
               ) : (
-                <button
-                  onClick={() => handleSelectPlan(plan.key)}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Get ${plan.name} — 14 days free`}
-                </button>
+                <div>
+                  <button
+                    onClick={() => handleSelectPlan(plan.key)}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Get ${plan.name} — 14 days free`}
+                  </button>
+                  <p className="text-center text-slate-600 text-xs mt-2">No charge today · Cancel any time</p>
+                </div>
               )}
             </div>
           );
