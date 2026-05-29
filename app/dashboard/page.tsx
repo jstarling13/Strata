@@ -16,6 +16,7 @@ import RevenueTrend from "@/components/dashboard/RevenueTrend";
 import SchedulingTips from "@/components/dashboard/SchedulingTips";
 import WeekSummary from "@/components/dashboard/WeekSummary";
 import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
+import StaffComparison from "@/components/dashboard/StaffComparison";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -236,9 +237,12 @@ function DashboardInner() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Staff performance</h2>
-          <Link href="/dashboard/staff" className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1">
-            View all <LinkIcon className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <StaffComparison staff={staffStats} />
+            <Link href="/dashboard/staff" className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1">
+              View all <LinkIcon className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
         <StaffTable staff={staffStats} />
       </div>
@@ -270,6 +274,7 @@ function DashboardInner() {
             prev={overview.prevTeamAvgRepeatRate}
             laborPct={overview.laborPct}
             laborTarget={overview.laborCostTarget}
+            weeklyRevenue={overview.weeklyRevenue}
           />
         </div>
       </div>

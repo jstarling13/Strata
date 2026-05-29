@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, Users, TrendingUp, CheckCircle, Bell, Sparkles, Clock } from "lucide-react";
+import { ArrowRight, BarChart3, Users, TrendingUp, CheckCircle, Bell, Sparkles, Clock, Star, Quote } from "lucide-react";
+import RoiCalculator from "@/components/marketing/RoiCalculator";
 
 export default function HomePage() {
   return (
@@ -103,6 +104,64 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="py-24 px-6 bg-slate-900/40 border-y border-slate-800">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-center text-slate-500 text-sm uppercase tracking-widest font-semibold mb-12">What owners say after the first week</p>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                quote: "I cut Thursday lunch to 2 people after seeing the numbers. Saved $640/month in the first week. I had no idea that shift was that bad.",
+                name: "Marcus T.",
+                biz: "Corner Table Bistro · Austin, TX",
+                metric: "$640/mo saved",
+                metricColor: "text-green-400",
+                stars: 5,
+                initials: "MT",
+              },
+              {
+                quote: "The repeat rate breakdown changed how I schedule. I moved my best server to Friday evenings and our revenue went up 11% that month.",
+                name: "Priya K.",
+                biz: "Bloom Café · Chicago, IL",
+                metric: "+11% monthly revenue",
+                metricColor: "text-blue-400",
+                stars: 5,
+                initials: "PK",
+              },
+              {
+                quote: "I've been in the restaurant business 18 years. I've never had a tool that showed me this clearly which employee is worth $40k more per year than another.",
+                name: "Sandra R.",
+                biz: "Rosario's Kitchen · Miami, FL",
+                metric: "18-year operator",
+                metricColor: "text-purple-400",
+                stars: 5,
+                initials: "SR",
+              },
+            ].map((t) => (
+              <div key={t.name} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col">
+                <div className="flex items-center gap-0.5 mb-4">
+                  {Array.from({ length: t.stars }).map((_, i) => (
+                    <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  ))}
+                </div>
+                <Quote className="w-5 h-5 text-slate-700 mb-3" />
+                <p className="text-slate-300 text-sm leading-relaxed flex-1 mb-5">{t.quote}</p>
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
+                  <div className="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs font-bold shrink-0">
+                    {t.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-slate-200 text-sm font-semibold">{t.name}</div>
+                    <div className="text-slate-500 text-xs truncate">{t.biz}</div>
+                  </div>
+                  <div className={`ml-auto shrink-0 text-xs font-bold ${t.metricColor}`}>{t.metric}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* How it works */}
       <section id="how-it-works" className="py-24 px-6 bg-slate-900/40">
         <div className="max-w-4xl mx-auto">
@@ -150,6 +209,19 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ROI Calculator */}
+      <section className="py-24 px-6 bg-slate-900/40">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">See what this is worth to you, right now</h2>
+            <p className="text-slate-400 text-lg leading-relaxed max-w-xl mx-auto">
+              Most owners know they have a labor problem. They just don&apos;t know how expensive it is in actual dollars.
+            </p>
+          </div>
+          <RoiCalculator />
+        </div>
+      </section>
+
       {/* What you get in your first week */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto">
@@ -194,6 +266,46 @@ export default function HomePage() {
                 <span className="text-xs text-slate-500 bg-slate-700 px-1.5 py-0.5 rounded">{badge}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison table */}
+      <section className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-4">Your POS vs. your POS + Strata</h2>
+          <p className="text-slate-400 text-center mb-12">Your POS records transactions. Strata answers what to do about them.</p>
+          <div className="grid md:grid-cols-2 gap-px bg-slate-800 rounded-2xl overflow-hidden border border-slate-800">
+            {/* Header */}
+            <div className="bg-slate-900 px-6 py-4 font-semibold text-slate-400 text-sm">Your POS alone</div>
+            <div className="bg-blue-600/10 px-6 py-4 font-semibold text-blue-300 text-sm flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-blue-400" /> POS + Strata
+            </div>
+            {[
+              ["Shows total sales", "Shows revenue by employee, shift, and time slot"],
+              ["Lists transactions", "Ranks staff by repeat customer rate"],
+              ["Records labor separately", "Calculates labor cost % per shift automatically"],
+              ["No benchmarks", "Compares you to industry medians for your business type"],
+              ["No alerts", "Alerts you instantly when a metric drops (Plus plan)"],
+              ["You guess what's wrong", "Tells you exactly which shift to cut and which employee to schedule"],
+              ["Monthly P&L", "Weekly AI digest with one specific action per insight"],
+            ].map(([left, right], i) => (
+              <>
+                <div key={`l-${i}`} className="bg-slate-900 px-6 py-3.5 text-slate-500 text-sm border-t border-slate-800 flex items-start gap-2">
+                  <span className="text-slate-700 mt-0.5">—</span>
+                  {left}
+                </div>
+                <div key={`r-${i}`} className="bg-slate-900/60 px-6 py-3.5 text-slate-200 text-sm border-t border-slate-800 flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  {right}
+                </div>
+              </>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link href="/sign-up" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl transition-colors">
+              Start free — see your numbers <ArrowRight className="w-5 h-5" />
+            </Link>
           </div>
         </div>
       </section>

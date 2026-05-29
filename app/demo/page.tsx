@@ -11,6 +11,7 @@ import RevenueTrend from "@/components/dashboard/RevenueTrend";
 import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
 import SchedulingTips from "@/components/dashboard/SchedulingTips";
 import StaffLeaderboard from "@/components/dashboard/StaffLeaderboard";
+import StaffComparison from "@/components/dashboard/StaffComparison";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 import Link from "next/link";
 
@@ -186,7 +187,10 @@ export default function DemoPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Staff performance</h2>
-            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full">5 staff members · last 7 days</span>
+            <div className="flex items-center gap-3">
+              <StaffComparison staff={staffStats} />
+              <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full">5 staff · last 7 days</span>
+            </div>
           </div>
           <StaffTable staff={staffStats} isDemo />
         </div>

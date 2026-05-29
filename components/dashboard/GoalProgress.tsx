@@ -1,25 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { Target, TrendingUp, TrendingDown, CheckCircle } from "lucide-react";
-import { formatPct, cn } from "@/lib/utils";
+import { Target, TrendingUp, TrendingDown, CheckCircle, DollarSign } from "lucide-react";
+import { formatPct, formatCurrency, cn } from "@/lib/utils";
 
 interface Props {
   current: number;
   prev: number | null;
   laborPct: number;
   laborTarget: number;
+  weeklyRevenue?: number;
 }
 
 const MILESTONES = [0.30, 0.40, 0.50, 0.60];
 
-export default function GoalProgress({ current, prev, laborPct, laborTarget }: Props) {
+export default function GoalProgress({ current, prev, laborPct, laborTarget, weeklyRevenue }: Props) {
   const [goalTarget, setGoalTarget] = useState(0.45);
   const [editing, setEditing] = useState(false);
 
   const progressPct = Math.min(100, Math.round((current / goalTarget) * 100));
   const onTrack = current >= goalTarget;
   const weekDelta = prev !== null ? current - prev : null;
+
+  // Dollar savings projections
+  const laborGapPct = laborPct - laborTarget; // e.g. 0.04 = 4pts over
+  const monthlySavingsPotential = weeklyRevenue && laborGapPct > 0
+    ? Math.round(weeklyRevenue * laborGapPct * 4.33)
+    : null;
 
   const nextMilestone = MILESTONES.find((m) => m > current) || goalTarget;
   const toNextMilestone = Math.max(0, nextMilestone - current);
@@ -132,6 +139,17 @@ export default function GoalProgress({ current, prev, laborPct, laborTarget }: P
             </span>
           )}
         </div>
+
+        {/* Dollar savings potential */}
+        {monthlySavingsPotential && monthlySavingsPotential > 0 && (
+          <div className="mt-3 bg-blue-600/10 border border-blue-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
+            <DollarSign className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <p className="text-blue-300 text-xs leading-relaxed">
+              Hitting your {Math.round(laborTarget * 100)}% target saves an estimated{" "}
+              <strong>{formatCurrency(monthlySavingsPotential)}/month</strong> based on current revenue.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

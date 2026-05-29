@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { TrendingUp, TrendingDown, Users, BarChart3, ArrowRight, Sparkles, ChevronDown, ChevronUp, CheckCircle, Copy, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingUp, TrendingDown, Users, BarChart3, ArrowRight, Sparkles, ChevronDown, ChevronUp, CheckCircle, Copy, Check, BookmarkCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface InsightCard {
@@ -28,10 +28,27 @@ const TYPE_META: Record<string, { icon: React.ReactNode; color: string; label: s
   reallocation: { icon: <ArrowRight className="w-4 h-4" />, color: "text-yellow-400 bg-yellow-400/10", label: "Reallocation" },
 };
 
-function InsightItem({ insight }: { insight: InsightCard }) {
+function InsightItem({ insight, storageKey }: { insight: InsightCard; storageKey: string }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const meta = TYPE_META[insight.type] || TYPE_META.top_performer;
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_done_insights") || "{}");
+      setDone(!!stored[storageKey]);
+    } catch {}
+  }, [storageKey]);
+
+  function toggleDone(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_done_insights") || "{}");
+      stored[storageKey] = !done;
+      localStorage.setItem("strata_done_insights", JSON.stringify(stored));
+      setDone(!done);
+    } catch {}
+  }
 
   function copyInsight() {
     const text = `${insight.title}\n\n${insight.body}${insight.action ? `\n\nAction: ${insight.action}` : ""}`;
@@ -40,8 +57,10 @@ function InsightItem({ insight }: { insight: InsightCard }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const meta = TYPE_META[insight.type] || TYPE_META.top_performer;
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div className={cn("bg-slate-900 border rounded-xl overflow-hidden transition-colors", done ? "border-green-500/30 opacity-70" : "border-slate-800")}>
       <button
         className="w-full text-left p-4 flex items-start gap-3 hover:bg-slate-800/40 transition-colors group"
         onClick={() => setExpanded(!expanded)}
@@ -51,9 +70,18 @@ function InsightItem({ insight }: { insight: InsightCard }) {
           <span className="hidden sm:inline">{meta.label}</span>
         </span>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-slate-100 text-sm leading-snug">{insight.title}</div>
+          <div className={cn("font-semibold text-sm leading-snug", done ? "text-slate-400 line-through" : "text-slate-100")}>{insight.title}</div>
         </div>
-        {expanded ? <ChevronUp className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" /> : <ChevronDown className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={toggleDone}
+            title={done ? "Mark as not done" : "Mark as done"}
+            className={cn("p-1 rounded transition-colors", done ? "text-green-400" : "text-slate-600 hover:text-green-400")}
+          >
+            <BookmarkCheck className="w-4 h-4" />
+          </button>
+          {expanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+        </div>
       </button>
 
       {expanded && (
@@ -70,7 +98,19 @@ function InsightItem({ insight }: { insight: InsightCard }) {
             </div>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={toggleDone}
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors",
+                done
+                  ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                  : "bg-slate-800 text-slate-400 hover:text-green-400 hover:bg-green-500/10"
+              )}
+            >
+              <BookmarkCheck className="w-3.5 h-3.5" />
+              {done ? "Done ✓" : "Mark as done"}
+            </button>
             <button
               onClick={copyInsight}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
@@ -86,6 +126,20 @@ function InsightItem({ insight }: { insight: InsightCard }) {
 }
 
 export default function DigestPanel({ digest }: { digest: Digest | null }) {
+  const [doneCount, setDoneCount] = useState(0);
+  const insights: InsightCard[] = Array.isArray(digest?.insightsJson) ? digest!.insightsJson : [];
+
+  // All hooks must be declared before any early return
+  useEffect(() => {
+    if (!digest?.id) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_done_insights") || "{}");
+      const count = insights.filter((_, i) => stored[`${digest.id}-${i}`]).length;
+      setDoneCount(count);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [digest?.id, insights.length]);
+
   if (!digest) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
@@ -96,8 +150,6 @@ export default function DigestPanel({ digest }: { digest: Digest | null }) {
     );
   }
 
-  const insights: InsightCard[] = Array.isArray(digest.insightsJson) ? digest.insightsJson : [];
-
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-1">
@@ -106,10 +158,14 @@ export default function DigestPanel({ digest }: { digest: Digest | null }) {
           Week of {new Date(digest.weekOf).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           {" · "}{insights.length} insights
         </span>
-        <span className="text-slate-600 text-xs">Click to expand</span>
+        {doneCount > 0 ? (
+          <span className="text-green-400 text-xs font-medium">{doneCount}/{insights.length} done ✓</span>
+        ) : (
+          <span className="text-slate-600 text-xs">Click to expand · bookmark when done</span>
+        )}
       </div>
       {insights.map((insight, i) => (
-        <InsightItem key={i} insight={insight} />
+        <InsightItem key={i} insight={insight} storageKey={`${digest.id}-${i}`} />
       ))}
     </div>
   );
