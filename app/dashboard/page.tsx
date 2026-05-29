@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, Users, DollarSign, Calendar, RefreshCw, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { TrendingUp, Users, DollarSign, Calendar, RefreshCw, Loader2, Sparkles, X } from "lucide-react";
 import { formatCurrency, formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
 import StaffTable from "@/components/dashboard/StaffTable";
 import ShiftHeatmap from "@/components/dashboard/ShiftHeatmap";
@@ -11,6 +12,15 @@ export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUpgradeToast, setShowUpgradeToast] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("upgraded") === "true") {
+      setShowUpgradeToast(true);
+      setTimeout(() => setShowUpgradeToast(false), 6000);
+    }
+  }, [searchParams]);
 
   async function load(showRefresh = false) {
     if (showRefresh) setRefreshing(true);
@@ -71,6 +81,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Upgrade success toast */}
+      {showUpgradeToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-800 border border-green-500/30 rounded-2xl px-5 py-4 shadow-2xl animate-in slide-in-from-bottom-4">
+          <Sparkles className="w-5 h-5 text-green-400 shrink-0" />
+          <div>
+            <div className="text-slate-100 font-semibold text-sm">You&apos;re all set.</div>
+            <div className="text-slate-400 text-xs">Your weekly digests and alerts are now active.</div>
+          </div>
+          <button onClick={() => setShowUpgradeToast(false)} className="text-slate-500 hover:text-slate-300 ml-2">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>

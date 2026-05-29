@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       await normalizeSquareData(org.id, accessToken);
     }
 
-    await runAttribution(org.id);
+    // Pass lastSyncAt so attribution runs incrementally (only new transactions)
+    await runAttribution(org.id, dataSource.lastSyncAt ?? undefined);
 
     await prisma.dataSource.update({
       where: { id: dataSource.id },

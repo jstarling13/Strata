@@ -37,11 +37,11 @@ export default function HomePage() {
             <Link href="/sign-up" className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors">
               Start 14-day free trial <ArrowRight className="w-5 h-5" />
             </Link>
-            <a href="#how-it-works" className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold px-8 py-4 rounded-xl text-lg transition-colors">
-              See how it works
-            </a>
+            <Link href="/demo" className="inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold px-8 py-4 rounded-xl text-lg transition-colors">
+              See live demo →
+            </Link>
           </div>
-          <p className="text-slate-600 text-sm mt-4">No credit card required. Cancel anytime.</p>
+          <p className="text-slate-500 text-sm mt-4">No credit card required · 14-day free trial · <Link href="/demo" className="text-blue-500 hover:text-blue-400 underline underline-offset-2">or try the live demo first</Link></p>
         </div>
       </section>
 

@@ -17,7 +17,7 @@ interface StaffRow {
 
 type SortKey = keyof Omit<StaffRow, "id" | "role">;
 
-export default function StaffTable({ staff }: { staff: StaffRow[] }) {
+export default function StaffTable({ staff, isDemo }: { staff: StaffRow[]; isDemo?: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>("repeatRate");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -91,9 +91,13 @@ export default function StaffTable({ staff }: { staff: StaffRow[] }) {
               </td>
               <td className="py-4 text-slate-300 text-sm tabular-nums">{formatCurrency(s.revenue)}</td>
               <td className="pr-4 py-4">
-                <Link href={`/dashboard/staff/${s.id}`} className="text-slate-500 hover:text-blue-400 transition-colors">
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
+                {isDemo ? (
+                  <span className="text-slate-700"><ChevronRight className="w-4 h-4" /></span>
+                ) : (
+                  <Link href={`/dashboard/staff/${s.id}`} className="text-slate-500 hover:text-blue-400 transition-colors">
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                )}
               </td>
             </tr>
           ))}
