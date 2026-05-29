@@ -15,6 +15,7 @@ import GoalProgress from "@/components/dashboard/GoalProgress";
 import RevenueTrend from "@/components/dashboard/RevenueTrend";
 import SchedulingTips from "@/components/dashboard/SchedulingTips";
 import WeekSummary from "@/components/dashboard/WeekSummary";
+import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -249,8 +250,19 @@ function DashboardInner() {
         laborCostTarget={overview.laborCostTarget}
       />
 
-      {/* Goal progress + heatmap + digest */}
-      <div className="grid lg:grid-cols-3 gap-8">
+      {/* Team health score + goal progress */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Team health score</h2>
+          <TeamHealthScore
+            orgType={org.type}
+            laborPct={overview.laborPct}
+            laborCostTarget={overview.laborCostTarget}
+            teamAvgRepeatRate={overview.teamAvgRepeatRate}
+            prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate}
+            overTargetShiftCount={shiftPerformance.filter((s: any) => s.laborPct > overview.laborCostTarget * 1.1).length}
+          />
+        </div>
         <div>
           <h2 className="text-lg font-semibold mb-4">Your goals</h2>
           <GoalProgress
@@ -260,6 +272,10 @@ function DashboardInner() {
             laborTarget={overview.laborCostTarget}
           />
         </div>
+      </div>
+
+      {/* Heatmap + digest */}
+      <div className="grid lg:grid-cols-2 gap-8">
         <div>
           <h2 className="text-lg font-semibold mb-4">Shift profitability heatmap</h2>
           <ShiftHeatmap shifts={shiftPerformance} target={overview.laborCostTarget} />

@@ -6,6 +6,11 @@ import { formatCurrency, formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/u
 import StaffTable from "@/components/dashboard/StaffTable";
 import ShiftHeatmap from "@/components/dashboard/ShiftHeatmap";
 import DemoDigestPanel from "@/components/demo/DemoDigestPanel";
+import WeekSummary from "@/components/dashboard/WeekSummary";
+import RevenueTrend from "@/components/dashboard/RevenueTrend";
+import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
+import SchedulingTips from "@/components/dashboard/SchedulingTips";
+import StaffLeaderboard from "@/components/dashboard/StaffLeaderboard";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 import Link from "next/link";
 
@@ -26,7 +31,7 @@ export default function DemoPage() {
   }
 
   if (!data) return null;
-  const { overview, staffStats, shiftPerformance, latestDigest } = data;
+  const { overview, staffStats, shiftPerformance, latestDigest, revenueTrend } = data;
 
   const overviewCards = [
     {
@@ -132,10 +137,49 @@ export default function DemoPage() {
           </div>
         )}
 
+        {/* Week summary */}
+        <WeekSummary
+          weeklyRevenue={overview.weeklyRevenue}
+          prevWeekRevenue={overview.prevWeekRevenue ?? null}
+          laborPct={overview.laborPct}
+          laborCostTarget={overview.laborCostTarget}
+          teamAvgRepeatRate={overview.teamAvgRepeatRate}
+          prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate ?? null}
+        />
+
         {/* Benchmarks */}
         <div className="flex flex-wrap gap-3">
           <RepeatRateBenchmark orgType="restaurant" actual={overview.teamAvgRepeatRate} />
           <LaborPctBenchmark orgType="restaurant" actual={overview.laborPct} target={overview.laborCostTarget} />
+        </div>
+
+        {/* Revenue trend */}
+        {revenueTrend?.length >= 2 && <RevenueTrend data={revenueTrend} />}
+
+        {/* Scheduling tips */}
+        <SchedulingTips
+          shiftPerformance={shiftPerformance}
+          staffStats={staffStats}
+          laborCostTarget={overview.laborCostTarget}
+        />
+
+        {/* Team health + Staff leaderboard */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Team health score</h2>
+            <TeamHealthScore
+              orgType="restaurant"
+              laborPct={overview.laborPct}
+              laborCostTarget={overview.laborCostTarget}
+              teamAvgRepeatRate={overview.teamAvgRepeatRate}
+              prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate ?? null}
+              overTargetShiftCount={shiftPerformance.filter((s: any) => s.laborPct > overview.laborCostTarget * 1.1).length}
+            />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Staff leaderboard</h2>
+            <StaffLeaderboard staff={staffStats} />
+          </div>
         </div>
 
         {/* Staff table */}

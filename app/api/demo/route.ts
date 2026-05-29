@@ -83,28 +83,42 @@ export async function GET() {
     },
   ];
 
+  // Simulate 4-week revenue trend
+  const weeklyRevenue = staffStats.reduce((s, m) => s + m.revenue, 0);
+  const revenueTrend = [
+    { weekOf: new Date(Date.now() - 21 * 86400000).toISOString(), revenue: weeklyRevenue * 0.82 },
+    { weekOf: new Date(Date.now() - 14 * 86400000).toISOString(), revenue: weeklyRevenue * 0.89 },
+    { weekOf: new Date(Date.now() - 7 * 86400000).toISOString(), revenue: weeklyRevenue * 0.93 },
+    { weekOf: new Date().toISOString(), revenue: weeklyRevenue },
+  ];
+
   return NextResponse.json({
     isDemo: true,
     org: {
       id: "demo",
       name: "The Corner Table",
+      type: "restaurant",
       plan: "standard",
       laborCostTarget: 0.3,
       trialEndsAt: null,
     },
     overview: {
-      weeklyRevenue: staffStats.reduce((s, m) => s + m.revenue, 0),
+      weeklyRevenue,
+      prevWeekRevenue: weeklyRevenue * 0.93,
       laborPct: 0.34,
       laborCostTarget: 0.3,
       topStaff: { name: "Maria Santos", repeatRate: 0.68 },
       teamAvgRepeatRate: Math.round(teamAvgRepeat * 1000) / 1000,
-      prevTeamAvgRepeatRate: null,
+      prevTeamAvgRepeatRate: Math.round(teamAvgRepeat * 1000) / 1000 - 0.02,
       bestShift: { dayOfWeek: bestShift.dayOfWeek, shiftSlot: bestShift.shiftSlot, laborPct: bestShift.laborPct },
       worstShift: worstShift.laborPct > 0.3
         ? { dayOfWeek: worstShift.dayOfWeek, shiftSlot: worstShift.shiftSlot, laborPct: worstShift.laborPct }
         : null,
     },
-    staffStats,
+    staffStats: staffStats.map((s) => ({
+      ...s,
+      prevRepeatRate: Math.max(0, s.repeatRate + (Math.random() > 0.5 ? -0.04 : 0.03)),
+    })),
     shiftPerformance,
     latestDigest: {
       id: "demo-digest",
@@ -114,5 +128,10 @@ export async function GET() {
       generatedAt: new Date().toISOString(),
     },
     lastSyncAt: new Date().toISOString(),
+    revenueTrend,
+    allDigests: [
+      { id: "demo-digest", weekOf: new Date().toISOString(), generatedAt: new Date().toISOString() },
+    ],
+    hasData: true,
   });
 }
