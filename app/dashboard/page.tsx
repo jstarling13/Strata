@@ -17,6 +17,7 @@ import SchedulingTips from "@/components/dashboard/SchedulingTips";
 import WeekSummary from "@/components/dashboard/WeekSummary";
 import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
 import StaffComparison from "@/components/dashboard/StaffComparison";
+import SmartSummary from "@/components/dashboard/SmartSummary";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -188,6 +189,19 @@ function DashboardInner() {
           </button>
         </div>
       </div>
+
+      {/* Smart one-line summary */}
+      <SmartSummary
+        weeklyRevenue={overview.weeklyRevenue}
+        prevWeekRevenue={overview.prevWeekRevenue ?? null}
+        laborPct={overview.laborPct}
+        laborCostTarget={overview.laborCostTarget}
+        teamAvgRepeatRate={overview.teamAvgRepeatRate}
+        prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate ?? null}
+        topStaffName={overview.topStaff?.name}
+        worstShiftDay={overview.worstShift ? dayLabel(overview.worstShift.dayOfWeek) : undefined}
+        worstShiftSlot={overview.worstShift ? shiftSlotLabel(overview.worstShift.shiftSlot) : undefined}
+      />
 
       {/* Overview cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

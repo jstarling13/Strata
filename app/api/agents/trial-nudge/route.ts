@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
       include: { staff: true },
     });
 
+    // Get total revenue surveyed and insight count
+    const allDigests = await prisma.weeklyDigest.findMany({ where: { orgId: org.id } });
+    const allStaffStats = await prisma.staffWeeklyStats.findMany({ where: { orgId: org.id } });
+    const totalRevenueSurveyed = allStaffStats.reduce((s: number, m: any) => s + (m.revenue ?? 0), 0);
+    const insightCount = allDigests.reduce((s, d) => s + ((d.insightsJson as any[])?.length ?? 0), 0);
+
     try {
       const { createClerkClient } = await import("@clerk/nextjs/server");
       const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -50,11 +56,17 @@ export async function POST(req: NextRequest) {
       const email = user.emailAddresses[0]?.emailAddress;
       if (!email) continue;
 
+      const topStaffWithRevenue = topStaff ? {
+        staff: topStaff.staff,
+        repeatRate: (topStaff as any).repeatRate,
+        revenue: (topStaff as any).revenue ?? 0,
+      } : null;
+
       await resend.emails.send({
         from: FROM,
         to: email,
-        subject: `Your Strata trial ends in 2 days — here's what your data shows`,
-        html: buildTrialNudgeEmail(org.name, topInsight, topStaff),
+        subject: `Your Strata trial ends in 2 days — ${insightCount} insights ready`,
+        html: buildTrialNudgeEmail(org.name, topInsight, topStaffWithRevenue, totalRevenueSurveyed, insightCount),
       });
       sent++;
     } catch (e) {
@@ -68,64 +80,116 @@ export async function POST(req: NextRequest) {
 function buildTrialNudgeEmail(
   orgName: string,
   topInsight: { title: string; body: string; action?: string } | null,
-  topStaff: { staff: { displayName: string }; repeatRate: number } | null
+  topStaff: { staff: { displayName: string }; repeatRate: number; revenue: number } | null,
+  totalRevenueSurveyed?: number,
+  insightCount?: number
 ): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://strata.ai";
+  const fmtCurrency = (n: number) => "$" + Math.round(n).toLocaleString();
 
-  const insightHtml = topInsight
-    ? `
-    <div style="background:#1e293b;border-left:3px solid #3B82F6;border-radius:0 8px 8px 0;padding:16px 20px;margin:24px 0;">
-      <div style="color:#3B82F6;font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:6px;">From your data</div>
-      <div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:8px;">${topInsight.title}</div>
-      <div style="color:#94a3b8;font-size:14px;line-height:1.6;">${topInsight.body}</div>
-      ${topInsight.action ? `<div style="color:#93c5fd;font-size:13px;margin-top:10px;font-style:italic;">→ ${topInsight.action}</div>` : ""}
-    </div>`
-    : topStaff
-    ? `
-    <div style="background:#1e293b;border-left:3px solid #3B82F6;border-radius:0 8px 8px 0;padding:16px 20px;margin:24px 0;">
-      <div style="color:#3B82F6;font-size:12px;font-weight:600;text-transform:uppercase;margin-bottom:6px;">From your data</div>
-      <div style="color:#f1f5f9;font-size:15px;line-height:1.6;">
-        <strong>${topStaff.staff.displayName}</strong> has a ${Math.round(topStaff.repeatRate * 100)}% repeat customer rate.
-        Strata has identified which shifts are most profitable for ${orgName} and where your labor dollar is working hardest.
+  // Key insight card
+  const insightHtml = topInsight ? `
+    <div style="background:#1e293b;border-radius:14px;padding:20px 24px;margin:24px 0;border:1px solid #334155;border-left:4px solid #3b82f6;">
+      <div style="color:#60a5fa;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Your top insight this trial</div>
+      <div style="color:#f1f5f9;font-size:16px;font-weight:700;margin-bottom:10px;line-height:1.4;">${topInsight.title}</div>
+      <div style="color:#94a3b8;font-size:14px;line-height:1.7;">${topInsight.body}</div>
+      ${topInsight.action ? `
+      <div style="margin-top:14px;background:#172554;border:1px solid #1e40af44;border-radius:8px;padding:12px 14px;">
+        <span style="color:#93c5fd;font-size:11px;font-weight:700;text-transform:uppercase;">Action: </span>
+        <span style="color:#bfdbfe;font-size:13px;">${topInsight.action}</span>
+      </div>` : ""}
+    </div>` : "";
+
+  // Top staff callout
+  const staffHtml = topStaff ? `
+    <div style="background:#0f2a1a;border:1px solid #16a34a44;border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+      <div style="color:#4ade80;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Best performer this trial</div>
+      <div style="color:#f1f5f9;font-size:15px;font-weight:700;">${topStaff.staff.displayName}</div>
+      <div style="color:#86efac;font-size:14px;margin-top:4px;">
+        ${Math.round(topStaff.repeatRate * 100)}% repeat rate · ${fmtCurrency(topStaff.revenue)} in revenue this period
       </div>
-    </div>`
-    : "";
+    </div>` : "";
+
+  // Stats summary
+  const statsHtml = (totalRevenueSurveyed ?? 0) > 0 || (insightCount ?? 0) > 0 ? `
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 24px;margin-bottom:24px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#475569;margin-bottom:12px;">What Strata analyzed in your 14-day trial</div>
+      <div style="display:flex;gap:32px;">
+        ${totalRevenueSurveyed ? `
+        <div>
+          <div style="color:#93c5fd;font-size:20px;font-weight:800;">${fmtCurrency(totalRevenueSurveyed)}</div>
+          <div style="color:#64748b;font-size:12px;margin-top:2px;">Revenue analyzed</div>
+        </div>` : ""}
+        ${insightCount ? `
+        <div>
+          <div style="color:#93c5fd;font-size:20px;font-weight:800;">${insightCount}</div>
+          <div style="color:#64748b;font-size:12px;margin-top:2px;">Insights generated</div>
+        </div>` : ""}
+      </div>
+    </div>` : "";
+
+  // What you'll lose
+  const loseHtml = `
+    <div style="background:#1a1010;border:1px solid #44222244;border-radius:12px;padding:16px 20px;margin:20px 0;">
+      <div style="color:#f87171;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">After your trial expires:</div>
+      <ul style="color:#fca5a5;font-size:14px;margin:0;padding-left:18px;line-height:2;">
+        <li>Weekly AI performance digest stops</li>
+        <li>Shift profitability heatmap locked</li>
+        <li>Staff repeat rate tracking paused</li>
+        <li>All your insights archived (not deleted — resume anytime)</li>
+      </ul>
+    </div>`;
 
   return `
 <!DOCTYPE html>
 <html>
-<body style="background:#0f172a;font-family:Inter,sans-serif;padding:40px 20px;margin:0;">
-  <div style="max-width:580px;margin:0 auto;">
-    <span style="color:#3B82F6;font-size:20px;font-weight:700;">Strata</span>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="background:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0;padding:0;">
+  <div style="max-width:580px;margin:0 auto;padding:40px 20px;">
 
-    <h1 style="color:#f1f5f9;font-size:22px;font-weight:700;margin-top:24px;line-height:1.3;">
-      Your trial ends in 2 days.<br/>Here's what your data found.
-    </h1>
-
-    <p style="color:#94a3b8;font-size:14px;line-height:1.7;">
-      You've had Strata connected to <strong style="color:#f1f5f9;">${orgName}</strong> for 12 days.
-      Here's one thing your data is telling you — that you probably didn't know before.
-    </p>
-
-    ${insightHtml}
-
-    <p style="color:#94a3b8;font-size:14px;line-height:1.7;margin-top:24px;">
-      This is one of ${topInsight ? "several" : "the"} insights Strata has found in your data.
-      Add a payment method to keep weekly performance reports, your full shift profitability heatmap, and anomaly alerts.
-    </p>
-
-    <div style="margin-top:28px;">
-      <a href="${appUrl}/dashboard/billing"
-         style="background:#3B82F6;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
-        Keep my Strata account →
-      </a>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid #1e293b;">
+      <span style="color:#3B82F6;font-size:20px;font-weight:800;">Strata</span>
+      <span style="color:#f59e0b;font-size:12px;font-weight:700;background:#451a0322;border:1px solid #f59e0b44;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.06em;">Trial ending</span>
     </div>
 
-    <p style="color:#475569;font-size:12px;margin-top:32px;line-height:1.6;">
-      Standard is $129/month — less than one unprofitable shift. Annual plans available at $999/year (save 35%).<br/>
-      <a href="${appUrl}/dashboard" style="color:#475569;">View dashboard</a> ·
-      <a href="${appUrl}/dashboard/billing" style="color:#475569;">Manage billing</a>
+    <!-- Title -->
+    <h1 style="color:#f8fafc;font-size:24px;font-weight:800;margin:0 0 10px;line-height:1.3;">
+      2 days left — here's what we found in <strong>${orgName}</strong>
+    </h1>
+    <p style="color:#64748b;font-size:14px;margin:0 0 24px;line-height:1.6;">
+      Your trial has surfaced some real data. Here's what continues — and what stops — on day 14.
     </p>
+
+    <!-- Stats summary -->
+    ${statsHtml}
+
+    <!-- Top staff -->
+    ${staffHtml}
+
+    <!-- Top insight -->
+    ${insightHtml}
+
+    <!-- What you'll lose -->
+    ${loseHtml}
+
+    <!-- CTA -->
+    <div style="margin-top:28px;text-align:center;padding:28px;background:linear-gradient(135deg,#1e3a5f 0%,#1e293b 100%);border-radius:16px;border:1px solid #2563eb44;">
+      <div style="color:#f8fafc;font-size:18px;font-weight:700;margin-bottom:8px;">Keep your insights flowing</div>
+      <div style="color:#94a3b8;font-size:14px;margin-bottom:20px;">Standard: $129/month — less than one unprofitable shift</div>
+      <a href="${appUrl}/dashboard/billing" style="background:#3B82F6;color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+        Upgrade now →
+      </a>
+      <div style="color:#475569;font-size:12px;margin-top:12px;">or $83/month billed annually (save 35%)</div>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:24px;text-align:center;">
+      <p style="color:#334155;font-size:12px;line-height:1.8;">
+        Strata · <a href="${appUrl}/dashboard" style="color:#475569;text-decoration:none;">Dashboard</a> ·
+        <a href="${appUrl}/dashboard/billing" style="color:#475569;text-decoration:none;">Billing</a>
+      </p>
+    </div>
   </div>
 </body>
 </html>`;

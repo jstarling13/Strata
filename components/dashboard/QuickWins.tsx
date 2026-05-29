@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle, TrendingDown, Users, BarChart3, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle, TrendingDown, Users, BarChart3, ArrowRight, Check } from "lucide-react";
 import { formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
 
 interface Props {
@@ -122,27 +123,65 @@ export default function QuickWins({ overview, staffStats, latestDigest }: Props)
     <div>
       <h2 className="text-lg font-semibold mb-4">This week&apos;s quick wins</h2>
       <div className="grid gap-3 sm:grid-cols-3">
-        {top3.map((win, i) => {
-          const badge = priorityLabel(win.priority);
-          return (
-            <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className={cn("flex items-center gap-1.5 text-xs font-semibold", win.color)}>
-                  {win.icon}
-                  {win.label}
-                </span>
-                <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", badge.cls)}>
-                  {badge.text}
-                </span>
-              </div>
-              <p className="text-slate-200 text-sm font-medium leading-snug">{win.title}</p>
-              <div className="mt-auto bg-slate-800 rounded-xl p-3">
-                <p className="text-slate-400 text-xs leading-relaxed">{win.action}</p>
-              </div>
-            </div>
-          );
-        })}
+        {top3.map((win, i) => (
+          <WinCard key={i} win={win} storageKey={`qw-${i}-${win.title.slice(0, 20)}`} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function WinCard({ win, storageKey }: { win: Win; storageKey: string }) {
+  const [done, setDone] = useState(false);
+  const badge = priorityLabel(win.priority);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_quickwins_done") || "{}");
+      setDone(!!stored[storageKey]);
+    } catch {}
+  }, [storageKey]);
+
+  function toggleDone(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_quickwins_done") || "{}");
+      stored[storageKey] = !done;
+      localStorage.setItem("strata_quickwins_done", JSON.stringify(stored));
+      setDone(!done);
+    } catch {}
+  }
+
+  return (
+    <div className={cn(
+      "border rounded-2xl p-4 flex flex-col gap-3 transition-all",
+      done ? "bg-slate-900/50 border-green-500/30 opacity-75" : "bg-slate-900 border-slate-800"
+    )}>
+      <div className="flex items-center justify-between">
+        <span className={cn("flex items-center gap-1.5 text-xs font-semibold", done ? "text-slate-500" : win.color)}>
+          {win.icon}
+          {win.label}
+        </span>
+        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", badge.cls)}>
+          {badge.text}
+        </span>
+      </div>
+      <p className={cn("text-sm font-medium leading-snug", done ? "text-slate-500 line-through" : "text-slate-200")}>{win.title}</p>
+      <div className="mt-auto bg-slate-800 rounded-xl p-3">
+        <p className="text-slate-400 text-xs leading-relaxed">{win.action}</p>
+      </div>
+      <button
+        onClick={toggleDone}
+        className={cn(
+          "flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg transition-colors w-full",
+          done
+            ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+            : "bg-slate-800 text-slate-500 hover:text-green-400 hover:bg-green-500/10"
+        )}
+      >
+        <Check className="w-3 h-3" />
+        {done ? "Done ✓" : "Mark as done"}
+      </button>
     </div>
   );
 }
