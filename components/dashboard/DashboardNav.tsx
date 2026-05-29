@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, Users, CreditCard, BookOpen, Settings, Bell } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, BookOpen, Settings, Bell, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/staff", label: "Staff", icon: Users, exact: false },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart2, exact: false },
   { href: "/dashboard/digests", label: "Digests", icon: BookOpen, exact: false },
   { href: "/dashboard/alerts", label: "Alerts", icon: Bell, exact: false },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard, exact: false },
