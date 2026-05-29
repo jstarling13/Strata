@@ -21,29 +21,31 @@ export async function normalizeCloverData(orgId: string, accessToken: string, me
   const employees: any[] = empData.elements || [];
 
   for (const emp of employees) {
-    await prisma.staffMember.upsert({
-      where: { orgId_externalId: { orgId, externalId: emp.id } },
-      create: {
-        orgId,
-        externalId: emp.id,
-        displayName: `${emp.name || emp.nickname || "Unknown"}`,
-        role: emp.role?.systemRole || "Staff",
-        hourlyRate: 15,
-      },
-      update: {
-        displayName: `${emp.name || emp.nickname || "Unknown"}`,
-      },
-    });
+    const existing = await prisma.staffMember.findFirst({ where: { orgId, externalId: emp.id } });
+    const displayName = emp.name || emp.nickname || "Unknown";
+    if (existing) {
+      await prisma.staffMember.update({ where: { id: existing.id }, data: { displayName } });
+    } else {
+      await prisma.staffMember.create({
+        data: {
+          orgId,
+          externalId: emp.id,
+          displayName,
+          role: emp.role?.systemRole || "Staff",
+          hourlyRate: 15,
+        },
+      });
+    }
   }
 
-  // Fetch orders (Clover calls them "orders")
+  // Fetch orders
   let offset = 0;
   const limit = 100;
   let hasMore = true;
 
   while (hasMore) {
     const ordersData = await cloverFetch(
-      `/v3/merchants/${merchantId}/orders?filter=createdTime>=${sinceMs}&expand=lineItems,employees&limit=${limit}&offset=${offset}`,
+      `/v3/merchants/${merchantId}/orders?filter=createdTime>=${sinceMs}&expand=employees&limit=${limit}&offset=${offset}`,
       accessToken
     );
 
@@ -59,24 +61,24 @@ export async function normalizeCloverData(orgId: string, accessToken: string, me
       });
       if (!staffMember) continue;
 
-      const amount = (order.total || 0) / 100; // Clover amounts are in cents
-      if (amount <= 0) continue;
+      const saleAmount = (order.total || 0) / 100;
+      if (saleAmount <= 0) continue;
 
       const createdAt = new Date(order.createdTime);
       const customerId = order.customer?.id || `anon_${order.id}`;
+      const txId = `clover_${order.id}`;
 
       await prisma.transaction.upsert({
-        where: { orgId_externalId: { orgId, externalId: order.id } },
+        where: { id: txId },
         create: {
+          id: txId,
           orgId,
-          externalId: order.id,
           staffId: staffMember.id,
           customerId,
-          amount,
+          saleAmount,
           tip: (order.serviceCharge?.amount || 0) / 100,
           transactedAt: createdAt,
           shiftSlot: getShiftSlot(createdAt.getHours()),
-          dayOfWeek: createdAt.getDay(),
         },
         update: {},
       });

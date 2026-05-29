@@ -57,23 +57,22 @@ export async function POST(req: NextRequest) {
     });
     if (!staff) return NextResponse.json({ ok: true });
 
-    const amount = (order.total_money?.amount || 0) / 100;
+    const saleAmount = (order.total_money?.amount || 0) / 100;
     const tip = (order.total_tip_money?.amount || 0) / 100;
     const customerId = order.customer_id || `anon_${order.id}`;
     const createdAt = new Date(order.created_at || Date.now());
 
     await prisma.transaction.upsert({
-      where: { orgId_externalId: { orgId: dataSource.orgId, externalId: order.id } },
+      where: { id: order.id },
       create: {
+        id: order.id,
         orgId: dataSource.orgId,
-        externalId: order.id,
         staffId: staff.id,
         customerId,
-        amount,
+        saleAmount,
         tip,
         transactedAt: createdAt,
         shiftSlot: getShiftSlot(createdAt.getHours()),
-        dayOfWeek: createdAt.getDay(),
       },
       update: {},
     });

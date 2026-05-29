@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSquareData } from "@/lib/agents/normalize";
 import { normalizeCloverData } from "@/lib/agents/normalize-clover";
+import { normalizeToastData } from "@/lib/agents/normalize-toast";
 import { runAttribution } from "@/lib/agents/attribution";
 
 export async function POST(req: NextRequest) {
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
     } else if (dataSource.type === "clover") {
       const { accessToken, merchantId } = dataSource.credentials as { accessToken: string; merchantId: string };
       await normalizeCloverData(org.id, accessToken, merchantId);
+    } else if (dataSource.type === "toast") {
+      const { apiKey } = dataSource.credentials as { apiKey: string };
+      await normalizeToastData(org.id, apiKey);
     }
 
     // Pass lastSyncAt so attribution runs incrementally (only new transactions)

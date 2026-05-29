@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, Loader2, ExternalLink, CreditCard, Zap } from "lucide-react";
+import { CheckCircle, Loader2, ExternalLink, CreditCard, Zap, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PLANS = [
@@ -183,9 +183,84 @@ export default function BillingPage() {
         </div>
       )}
 
-      <div className="text-slate-600 text-xs text-center pb-4">
-        One unprofitable shift costs more than a month of Strata. Cancel anytime.
+      {/* ROI Calculator */}
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calculator className="w-4 h-4 text-slate-400" />
+          <h2 className="font-semibold text-sm">ROI calculator</h2>
+        </div>
+        <ROICalc />
       </div>
+
+      <div className="text-slate-600 text-xs text-center pb-4">
+        No contracts. Cancel any time. Data stays for 90 days if you pause.
+      </div>
+    </div>
+  );
+}
+
+function ROICalc() {
+  const [weeklyRevenue, setWeeklyRevenue] = useState(12000);
+  const [laborTarget, setLaborTarget] = useState(30);
+  const [currentLabor, setCurrentLabor] = useState(36);
+
+  const monthlyRevenue = weeklyRevenue * 4.3;
+  const laborGap = Math.max(0, currentLabor - laborTarget) / 100;
+  const monthlyCost = monthlyRevenue * laborGap;
+  const planCost = 129;
+  const roi = Math.round((monthlyCost / planCost) * 10) / 10;
+
+  return (
+    <div className="space-y-5">
+      <p className="text-slate-400 text-sm">How much is your current labor overage costing you per month?</p>
+      <div className="grid sm:grid-cols-3 gap-4">
+        {[
+          { label: "Weekly revenue", value: weeklyRevenue, setter: setWeeklyRevenue, prefix: "$", suffix: "", min: 1000, max: 100000, step: 500 },
+          { label: "Your labor target", value: laborTarget, setter: setLaborTarget, prefix: "", suffix: "%", min: 15, max: 50, step: 1 },
+          { label: "Actual labor cost", value: currentLabor, setter: setCurrentLabor, prefix: "", suffix: "%", min: 15, max: 70, step: 1 },
+        ].map(({ label, value, setter, prefix, suffix, min, max, step }) => (
+          <div key={label}>
+            <label className="block text-xs text-slate-500 font-medium mb-1.5">{label}</label>
+            <div className="flex items-center bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:border-blue-500 transition-colors">
+              {prefix && <span className="text-slate-500 text-sm mr-1">{prefix}</span>}
+              <input
+                type="number"
+                value={value}
+                min={min}
+                max={max}
+                step={step}
+                onChange={(e) => setter(Number(e.target.value) || 0)}
+                className="flex-1 bg-transparent text-slate-100 text-sm focus:outline-none w-0 min-w-0"
+              />
+              {suffix && <span className="text-slate-500 text-sm ml-1">{suffix}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {monthlyCost > 0 ? (
+        <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-slate-400 text-xs mb-1">Monthly labor overage cost</div>
+            <div className="text-2xl font-bold text-red-400">${Math.round(monthlyCost).toLocaleString()}/mo</div>
+            <div className="text-slate-500 text-xs mt-0.5">
+              Fixing {currentLabor - laborTarget}pts of labor waste at your revenue level
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-slate-400 text-xs mb-1">Strata Standard ROI</div>
+            <div className="text-2xl font-bold text-green-400">{roi}×</div>
+            <div className="text-slate-500 text-xs mt-0.5">
+              ${planCost}/mo plan · ${Math.round(monthlyCost).toLocaleString()} recovered
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+          <p className="text-green-400 text-sm font-medium">You&apos;re at or below your labor target — great!</p>
+          <p className="text-slate-500 text-xs mt-1">Strata helps you keep it that way with weekly alerts and shift visibility.</p>
+        </div>
+      )}
     </div>
   );
 }
