@@ -9,6 +9,8 @@ import StaffTable from "@/components/dashboard/StaffTable";
 import ShiftHeatmap from "@/components/dashboard/ShiftHeatmap";
 import DigestPanel from "@/components/dashboard/DigestPanel";
 import QuickWins from "@/components/dashboard/QuickWins";
+import GettingStarted from "@/components/dashboard/GettingStarted";
+import ShareInsight from "@/components/dashboard/ShareInsight";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -79,7 +81,7 @@ function DashboardInner() {
     );
   }
 
-  const { overview, staffStats, shiftPerformance, latestDigest, lastSyncAt, org, allDigests } = data;
+  const { overview, staffStats, shiftPerformance, latestDigest, lastSyncAt, org, allDigests, hasData } = data;
 
   const repeatTrend = overview.prevTeamAvgRepeatRate !== null
     ? overview.teamAvgRepeatRate - overview.prevTeamAvgRepeatRate
@@ -138,6 +140,9 @@ function DashboardInner() {
         </div>
       )}
 
+      {/* Getting started checklist */}
+      <GettingStarted hasData={!!hasData} hasDigest={!!latestDigest} plan={org.plan} />
+
       {/* Worst shift warning banner */}
       {overview.worstShift && (
         <div className="bg-red-500/5 border border-red-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-3">
@@ -159,14 +164,23 @@ function DashboardInner() {
               : "No data synced yet"}
           </p>
         </div>
-        <button
-          onClick={() => load(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <ShareInsight
+            orgName={org.name}
+            topStaffName={overview.topStaff?.name}
+            topStaffRepeatRate={overview.topStaff?.repeatRate}
+            laborPct={overview.laborPct}
+            laborCostTarget={overview.laborCostTarget}
+          />
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Overview cards */}
