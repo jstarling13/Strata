@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgType {
+  restaurant
+  cafe
+  salon
+  gym
+  retail
+  other
+}
+
+enum OrgPlan {
+  trial
+  standard
+  plus
+  cancelled
+}
+
+enum DataSourceType {
+  square
+  toast
+  csv
+}
+
+enum DataSourceStatus {
+  active
+  error
+  pending
+}
+
+enum ShiftSlot {
+  morning
+  lunch
+  afternoon
+  evening
+}
+
+enum AlertType {
+  repeat_rate_drop
+  labor_cost_spike
+}
+
+model Organization {
+  id               String    @id @default(cuid())
+  clerkOrgId       String?   @unique
+  clerkUserId      String    @unique
+  name             String
+  type             OrgType
+  locationCount    Int       @default(1)
+  staffCount       Int       @default(1)
+  laborCostTarget  Float     @default(0.30)
+  plan             OrgPlan   @default(trial)
+  stripeCustomerId String?
+  stripeSubId      String?
+  trialEndsAt      DateTime?
+  status           String    @default("active")
+  onboardingDone   Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  dataSources       DataSource[]
+  staffMembers      StaffMember[]
+  transactions      Transaction[]
+  customerVisits    CustomerVisit[]
+  shiftPerformances ShiftPerformance[]
+  staffWeeklyStats  StaffWeeklyStats[]
+  weeklyDigests     WeeklyDigest[]
+  anomalyAlerts     AnomalyAlert[]
+}
+
+model DataSource {
+  id          String           @id @default(cuid())
+  orgId       String
+  type        DataSourceType
+  credentials Json?
+  lastSyncAt  DateTime?
+  status      DataSourceStatus @default(pending)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model StaffMember {
+  id          String   @id @default(cuid())
+  orgId       String
+  externalId  String?
+  displayName String
+  role        String
+  hourlyRate  Float    @default(15.0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions     Transaction[]
+  customerVisits   CustomerVisit[]
+  staffWeeklyStats StaffWeeklyStats[]
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  orgId         String
+  staffId       String?
+  customerId    String?
+  saleAmount    Float
+  tip           Float     @default(0)
+  transactedAt  DateTime
+  locationId    String?
+  shiftSlot     ShiftSlot?
+  createdAt     DateTime  @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  staff StaffMember? @relation(fields: [staffId], references: [id])
+}
+
+model CustomerVisit {
+  id         String    @id @default(cuid())
+  orgId      String
+  customerId String
+  staffId    String?
+  visitAt    DateTime
+  saleAmount Float
+  isRepeat   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  staff StaffMember? @relation(fields: [staffId], references: [id])
+}
+
+model ShiftPerformance {
+  id               String    @id @default(cuid())
+  orgId            String
+  dayOfWeek        Int
+  shiftSlot        ShiftSlot
+  weekOf           DateTime
+  totalSales       Float     @default(0)
+  laborCost        Float     @default(0)
+  laborPct         Float     @default(0)
+  transactionCount Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, dayOfWeek, shiftSlot, weekOf])
+}
+
+model StaffWeeklyStats {
+  id          String   @id @default(cuid())
+  orgId       String
+  staffId     String
+  weekOf      DateTime
+  transactions Int     @default(0)
+  revenue     Float    @default(0)
+  repeatCount Int      @default(0)
+  repeatRate  Float    @default(0)
+  avgTicket   Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  staff StaffMember  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, staffId, weekOf])
+}
+
+model WeeklyDigest {
+  id           String   @id @default(cuid())
+  orgId        String
+  weekOf       DateTime
+  insightsJson Json
+  plainText    String
+  generatedAt  DateTime @default(now())
+  sentAt       DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, weekOf])
+}
+
+model AnomalyAlert {
+  id        String    @id @default(cuid())
+  orgId     String
+  type      AlertType
+  message   String
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
