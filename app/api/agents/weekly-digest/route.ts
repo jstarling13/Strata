@@ -9,11 +9,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Send digests to paid plans + trial users who have data (to drive activation)
   const orgs = await prisma.organization.findMany({
     where: {
-      status: "active",
       onboardingDone: true,
-      plan: { in: ["standard", "plus"] },
+      OR: [
+        // Paid users: always send
+        { plan: { in: ["standard", "plus"] }, status: "active" },
+        // Trial users: send if they have data and trial is still active
+        {
+          plan: "trial",
+          trialEndsAt: { gte: new Date() },
+        },
+      ],
     },
     select: { id: true },
   });

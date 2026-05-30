@@ -95,6 +95,22 @@ export async function generateWeeklyDigest(orgId: string) {
     totalWeeklyRevenue: staffStats.reduce((s, m) => s + m.revenue, 0),
   };
 
+  // Compute annual revenue opportunity for email
+  const topRepeatRate = staffStats.length > 0 ? staffStats[0].repeatRate : 0;
+  const sortedForMedian = [...staffStats].sort((a, b) => a.repeatRate - b.repeatRate);
+  const medianRepeatRate = sortedForMedian.length > 0
+    ? sortedForMedian[Math.floor(sortedForMedian.length / 2)].repeatRate
+    : 0;
+  const belowMedian = sortedForMedian.filter((s) => s.repeatRate < medianRepeatRate);
+  const annualRevenueOpportunity = staffStats.length >= 2 && topRepeatRate > 0
+    ? Math.round(
+        belowMedian.reduce((sum, s) => {
+          const gap = Math.max(0, topRepeatRate - s.repeatRate);
+          return sum + s.revenue * gap * 0.25;
+        }, 0) * 52
+      )
+    : 0;
+
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1500,
@@ -124,26 +140,35 @@ export async function generateWeeklyDigest(orgId: string) {
     update: { insightsJson: insights, plainText, generatedAt: new Date() },
   });
 
-  return { digest, insights };
+  return { digest, insights, contextData, annualRevenueOpportunity };
 }
 
 export async function sendWeeklyDigestEmail(orgId: string) {
-  const { digest, insights } = await generateWeeklyDigest(orgId);
+  const { digest, insights, contextData, annualRevenueOpportunity } = await generateWeeklyDigest(orgId);
 
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
   const user = await getUserEmail(org.clerkUserId);
   if (!user) return;
 
+  // Check if this is the org's first digest (only one exists: the one we just created)
+  const digestCount = await prisma.weeklyDigest.count({ where: { orgId } });
+  const isFirstDigest = digestCount === 1;
+
   const top3 = insights.slice(0, 3);
   const topInsight = insights[0];
-  const subject = topInsight
-    ? `${topInsight.title} — your Strata digest is ready`
-    : `Your Strata weekly digest — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+  let subject: string;
+  if (isFirstDigest) {
+    subject = `🎉 Your first Strata digest is ready — ${insights.length} insights for ${org.name}`;
+  } else if (topInsight) {
+    subject = `${topInsight.title} — your Strata digest is ready`;
+  } else {
+    subject = `Your Strata weekly digest — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  }
 
   const topPerformer = contextData.topPerformers[0] ?? null;
   const worstShift = contextData.worstShift;
   const weeklyRevenue = contextData.totalWeeklyRevenue;
-  const laborPct = org.laborCostTarget; // rough proxy; real labor pct would need shiftPerf aggregate
 
   await resend.emails.send({
     from: FROM,
@@ -158,6 +183,7 @@ export async function sendWeeklyDigestEmail(orgId: string) {
       weeklyRevenue,
       laborCostTarget: org.laborCostTarget,
       teamAvgRepeatRate: contextData.teamAvgRepeatRate,
+      annualRevenueOpportunity,
     }),
   });
 
@@ -176,10 +202,11 @@ interface EmailParams {
   weeklyRevenue: number;
   laborCostTarget: number;
   teamAvgRepeatRate: number;
+  annualRevenueOpportunity: number;
 }
 
 function buildDigestEmail(params: EmailParams): string {
-  const { orgName, insights, digestId, topPerformer, worstShift, weeklyRevenue, laborCostTarget, teamAvgRepeatRate } = params;
+  const { orgName, insights, digestId, topPerformer, worstShift, weeklyRevenue, laborCostTarget, teamAvgRepeatRate, annualRevenueOpportunity } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://strata.ai";
   const weekStr = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const fmtCurrency = (n: number) => "$" + Math.round(n).toLocaleString();
@@ -249,6 +276,19 @@ function buildDigestEmail(params: EmailParams): string {
       </div>
     </div>`;
 
+  // Annual revenue opportunity callout
+  const fmtShort = (n: number) => n >= 10000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n).toLocaleString()}`;
+  const opportunityHtml = annualRevenueOpportunity >= 500 ? `
+    <div style="background:linear-gradient(135deg,#172554,#1e293b);border:1px solid #3b82f644;border-radius:14px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;">
+      <div style="background:#2563eb22;border-radius:10px;padding:10px;flex-shrink:0;">
+        <span style="font-size:22px;">📈</span>
+      </div>
+      <div>
+        <div style="color:#93c5fd;font-size:24px;font-weight:800;line-height:1;">${fmtShort(annualRevenueOpportunity)}/yr</div>
+        <div style="color:#64748b;font-size:12px;margin-top:4px;line-height:1.5;">identified in your data — close the repeat-rate gap between your top and bottom staff</div>
+      </div>
+    </div>` : "";
+
   // Worst shift callout
   const worstShiftHtml = worstShift && worstShift.laborPct > laborCostTarget * 1.1 ? `
     <div style="background:#450a0a22;border:1px solid #dc262666;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
@@ -286,6 +326,9 @@ function buildDigestEmail(params: EmailParams): string {
         ${insights.length} insights ready. Each one has a specific action.
       </p>
     </div>
+
+    <!-- Annual revenue opportunity -->
+    ${opportunityHtml}
 
     <!-- Key metrics -->
     ${metricsHtml}

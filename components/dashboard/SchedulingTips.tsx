@@ -1,8 +1,9 @@
 "use client";
 
-import { Calendar, ChevronRight, TrendingUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, ChevronRight, TrendingUp, CheckCircle2, Undo2 } from "lucide-react";
 import Link from "next/link";
-import { formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
+import { formatCurrency, formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
 
 interface ShiftData {
   dayOfWeek: number;
@@ -17,6 +18,8 @@ interface StaffRow {
   name: string;
   repeatRate: number;
   transactions: number;
+  avgTicket?: number;
+  revenue?: number;
 }
 
 interface Props {
@@ -26,11 +29,103 @@ interface Props {
 }
 
 interface Tip {
+  key: string;
   icon: React.ReactNode;
   color: string;
+  badgeColor: string;
   title: string;
   detail: string;
+  impact: string | null;    // e.g. "Save ~$640/wk"
+  impactColor: string;
   href?: string;
+}
+
+// Isolated card handles its own localStorage per tip key
+function TipCard({ tip }: { tip: Tip }) {
+  const [applied, setApplied] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_scheduling_applied") || "{}");
+      setApplied(!!stored[tip.key]);
+    } catch {}
+  }, [tip.key]);
+
+  function toggleApplied() {
+    try {
+      const stored = JSON.parse(localStorage.getItem("strata_scheduling_applied") || "{}");
+      if (applied) {
+        delete stored[tip.key];
+      } else {
+        stored[tip.key] = true;
+      }
+      localStorage.setItem("strata_scheduling_applied", JSON.stringify(stored));
+      setApplied(!applied);
+    } catch {}
+  }
+
+  return (
+    <div
+      className={cn(
+        "border rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300",
+        applied
+          ? "bg-green-500/5 border-green-500/20 opacity-75"
+          : "bg-slate-900 border-slate-800"
+      )}
+    >
+      {/* Tag row */}
+      <div className="flex items-center justify-between gap-2">
+        <div className={cn("flex items-center gap-1.5 text-xs font-semibold", applied ? "text-green-400" : tip.color)}>
+          {applied ? <CheckCircle2 className="w-4 h-4" /> : tip.icon}
+          {applied ? "Applied" : "Scheduling tip"}
+        </div>
+        {tip.impact && !applied && (
+          <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", tip.impactColor)}>
+            {tip.impact}
+          </span>
+        )}
+      </div>
+
+      {/* Title */}
+      <p className={cn("text-sm font-medium leading-snug", applied ? "line-through text-slate-500" : "text-slate-200")}>
+        {tip.title}
+      </p>
+
+      {/* Detail */}
+      {!applied && (
+        <p className="text-slate-500 text-xs leading-relaxed flex-1">{tip.detail}</p>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-auto pt-1">
+        {tip.href && !applied ? (
+          <Link
+            href={tip.href}
+            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            View profile <ChevronRight className="w-3 h-3" />
+          </Link>
+        ) : (
+          <span />
+        )}
+        <button
+          onClick={toggleApplied}
+          className={cn(
+            "flex items-center gap-1 text-xs font-medium transition-colors",
+            applied
+              ? "text-slate-500 hover:text-slate-300"
+              : "text-slate-600 hover:text-green-400"
+          )}
+        >
+          {applied ? (
+            <><Undo2 className="w-3 h-3" /> Undo</>
+          ) : (
+            <><CheckCircle2 className="w-3 h-3" /> Mark applied</>
+          )}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function SchedulingTips({ shiftPerformance, staffStats, laborCostTarget }: Props) {
@@ -47,11 +142,17 @@ export default function SchedulingTips({ shiftPerformance, staffStats, laborCost
 
   // Tip 1: Put top performer on best revenue shift
   if (topStaff && topShift && topStaff.repeatRate > 0.4) {
+    // Estimate: if top performer is on best shift, expect repeat rate to pull up ~5% more revenue
+    const weeklyLift = Math.round(topShift.totalSales * topStaff.repeatRate * 0.08);
     tips.push({
+      key: `tip-top-staff-${topStaff.id}`,
       icon: <TrendingUp className="w-4 h-4" />,
       color: "text-green-400",
+      badgeColor: "bg-green-400/10 text-green-400",
       title: `Schedule ${topStaff.name.split(" ")[0]} on ${dayLabel(topShift.dayOfWeek)} ${shiftSlotLabel(topShift.shiftSlot).split(" ")[0]}`,
-      detail: `Your highest-repeat-rate staff (${formatPct(topStaff.repeatRate)}) should cover your highest-revenue shift. That combination maximizes return visits.`,
+      detail: `Your highest-repeat-rate staff (${formatPct(topStaff.repeatRate)}) should cover your highest-revenue shift. That combination maximizes return visits and average ticket.`,
+      impact: weeklyLift > 0 ? `+${formatCurrency(weeklyLift)}/wk est.` : null,
+      impactColor: "bg-green-400/10 text-green-400",
       href: `/dashboard/staff/${topStaff.id}`,
     });
   }
@@ -62,22 +163,36 @@ export default function SchedulingTips({ shiftPerformance, staffStats, laborCost
     .sort((a, b) => b.laborPct - a.laborPct)[0];
 
   if (overstaffed) {
+    // Actual weekly savings if this shift hit target
+    const weeklySavings = Math.round(overstaffed.totalSales * (overstaffed.laborPct - laborCostTarget));
     tips.push({
+      key: `tip-overstaffed-${overstaffed.dayOfWeek}-${overstaffed.shiftSlot}`,
       icon: <Calendar className="w-4 h-4" />,
       color: "text-red-400",
+      badgeColor: "bg-red-400/10 text-red-400",
       title: `Reduce coverage on ${dayLabel(overstaffed.dayOfWeek)} ${shiftSlotLabel(overstaffed.shiftSlot).split(" ")[0]}`,
-      detail: `This shift runs at ${formatPct(overstaffed.laborPct)} labor — ${Math.round((overstaffed.laborPct / laborCostTarget - 1) * 100)}% over target. Try removing one part-time position or shortening shift duration.`,
+      detail: `This shift runs at ${formatPct(overstaffed.laborPct)} labor — ${Math.round((overstaffed.laborPct / laborCostTarget - 1) * 100)}% over your ${formatPct(laborCostTarget)} target. Try removing one part-time position or shortening shift duration.`,
+      impact: weeklySavings > 0 ? `Save ~${formatCurrency(weeklySavings)}/wk` : null,
+      impactColor: "bg-red-400/10 text-red-400",
     });
   }
 
   // Tip 3: Coach lowest performer
-  if (bottomStaff && sortedStaff.length > 1 && bottomStaff.repeatRate < topStaff?.repeatRate * 0.7) {
+  if (bottomStaff && sortedStaff.length > 1 && topStaff && bottomStaff.repeatRate < topStaff.repeatRate * 0.7) {
     const gap = topStaff.repeatRate - bottomStaff.repeatRate;
+    // Estimate: closing half the gap on their revenue
+    const annualLift = bottomStaff.revenue
+      ? Math.round(bottomStaff.revenue * (gap * 0.5) * 12)
+      : null;
     tips.push({
+      key: `tip-coach-${bottomStaff.id}`,
       icon: <TrendingUp className="w-4 h-4" />,
       color: "text-orange-400",
+      badgeColor: "bg-orange-400/10 text-orange-400",
       title: `Coach ${bottomStaff.name.split(" ")[0]} — ${(gap * 100).toFixed(0)}pt gap vs ${topStaff.name.split(" ")[0]}`,
-      detail: `Closing even half that gap would meaningfully improve team repeat rate. Schedule a 1:1 this week.`,
+      detail: `Closing even half the repeat rate gap would meaningfully improve your team average. Schedule a 1:1 this week to review their customer interactions.`,
+      impact: annualLift && annualLift > 0 ? `+${formatCurrency(annualLift)}/yr est.` : null,
+      impactColor: "bg-orange-400/10 text-orange-400",
       href: `/dashboard/staff/${bottomStaff.id}`,
     });
   }
@@ -88,37 +203,33 @@ export default function SchedulingTips({ shiftPerformance, staffStats, laborCost
     .sort((a, b) => b.totalSales - a.totalSales)[0];
 
   if (underTarget && tips.length < 3) {
+    // Potential revenue upside: if they added coverage, est. 10% more throughput
+    const potentialUplift = Math.round(underTarget.totalSales * 0.10);
     tips.push({
+      key: `tip-understaffed-${underTarget.dayOfWeek}-${underTarget.shiftSlot}`,
       icon: <Calendar className="w-4 h-4" />,
       color: "text-blue-400",
+      badgeColor: "bg-blue-400/10 text-blue-400",
       title: `${dayLabel(underTarget.dayOfWeek)} ${shiftSlotLabel(underTarget.shiftSlot).split(" ")[0]} may be under-served`,
-      detail: `High transaction volume at only ${formatPct(underTarget.laborPct)} labor suggests customers may be waiting. Consider adding coverage to improve service quality.`,
+      detail: `High transaction volume at only ${formatPct(underTarget.laborPct)} labor suggests customers may be waiting. Adding one staff member could improve service quality and throughput.`,
+      impact: potentialUplift > 0 ? `+${formatCurrency(potentialUplift)}/wk potential` : null,
+      impactColor: "bg-blue-400/10 text-blue-400",
     });
   }
 
   if (tips.length === 0) return null;
 
+  const visibleTips = tips.slice(0, 3);
+
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Scheduling recommendations</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Scheduling recommendations</h2>
+        <span className="text-xs text-slate-600">{visibleTips.length} action{visibleTips.length !== 1 ? "s" : ""} this week</span>
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {tips.slice(0, 3).map((tip, i) => (
-          <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
-            <div className={cn("flex items-center gap-1.5 text-xs font-semibold", tip.color)}>
-              {tip.icon}
-              Scheduling tip
-            </div>
-            <p className="text-slate-200 text-sm font-medium leading-snug">{tip.title}</p>
-            <p className="text-slate-500 text-xs leading-relaxed flex-1">{tip.detail}</p>
-            {tip.href && (
-              <Link
-                href={tip.href}
-                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-auto"
-              >
-                View staff profile <ChevronRight className="w-3 h-3" />
-              </Link>
-            )}
-          </div>
+        {visibleTips.map((tip) => (
+          <TipCard key={tip.key} tip={tip} />
         ))}
       </div>
     </div>

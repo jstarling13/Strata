@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, CreditCard, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, CreditCard, Pencil, Zap, Target } from "lucide-react";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { formatCurrency, formatPct, cn } from "@/lib/utils";
 import EditStaffModal from "@/components/dashboard/EditStaffModal";
@@ -61,7 +61,7 @@ export default function StaffDetailPage() {
     );
   }
 
-  const { staff, weeklyStats, summary, recentVisits } = data;
+  const { staff, weeklyStats, summary, recentVisits, teamAvgRepeatRate, topRepeatRate } = data;
   const displayName = localName?.name ?? staff.displayName;
   const displayRole = localName?.role ?? staff.role;
 
@@ -90,6 +90,18 @@ export default function StaffDetailPage() {
   }));
 
   const latestWeek = sortedStats[sortedStats.length - 1];
+
+  // Revenue opportunity vs top performer
+  const topRate = topRepeatRate ?? summary.avgRepeatRate;
+  const isTopPerformer = summary.avgRepeatRate >= topRate * 0.98;
+  const rateDiff = Math.max(0, topRate - summary.avgRepeatRate);
+  const annualRevenueGap = !isTopPerformer && rateDiff > 0.05
+    ? Math.round(summary.totalRevenue * rateDiff * 12 / Math.max(1, sortedStats.length / 4))
+    : 0;
+
+  // Milestone calculation — what rate do they need to hit team avg?
+  const teamAvg = teamAvgRepeatRate ?? null;
+  const gapToTeamAvg = teamAvg !== null ? Math.max(0, teamAvg - summary.avgRepeatRate) : null;
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -175,6 +187,41 @@ export default function StaffDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Revenue opportunity banner */}
+      {isTopPerformer ? (
+        <div className="flex items-center gap-3 bg-green-500/5 border border-green-500/20 rounded-2xl px-5 py-4">
+          <Target className="w-5 h-5 text-green-400 shrink-0" />
+          <div>
+            <p className="text-green-300 text-sm font-semibold">Top performer</p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              {displayName.split(" ")[0]} has your highest repeat rate. Schedule them on your highest-revenue shifts to maximize return visits.
+            </p>
+          </div>
+          <span className="ml-auto shrink-0 text-green-400 font-bold text-xs bg-green-400/10 border border-green-400/20 px-3 py-1 rounded-full">
+            #{1} on your team
+          </span>
+        </div>
+      ) : annualRevenueGap > 0 ? (
+        <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl px-5 py-4 flex items-start gap-4">
+          <Zap className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-orange-300 text-sm font-semibold mb-1">Revenue opportunity</p>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              {displayName.split(" ")[0]}&apos;s repeat rate is {(rateDiff * 100).toFixed(0)}pts below your top performer.
+              {" "}If they close that gap, the estimated annual revenue impact is{" "}
+              <strong className="text-orange-300">{formatCurrency(annualRevenueGap)}/year</strong>.
+              {gapToTeamAvg !== null && gapToTeamAvg > 0.01 && (
+                <span> Even reaching the team average ({formatPct(teamAvg!)}) would be a meaningful step forward.</span>
+              )}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-2xl font-bold text-orange-400 tabular-nums">{formatCurrency(annualRevenueGap)}</div>
+            <div className="text-slate-600 text-xs mt-0.5">est. annual gap</div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Charts */}
       {chartData.length > 1 && (
@@ -287,22 +334,33 @@ export default function StaffDetailPage() {
       )}
 
       {/* Coaching prompt for underperformers */}
-      {summary.avgRepeatRate > 0 && summary.avgRepeatRate < 0.35 && (
+      {summary.avgRepeatRate > 0 && summary.avgRepeatRate < 0.5 && (
         <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-            <h2 className="text-sm font-semibold text-orange-300">Coaching opportunity</h2>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+              <h2 className="text-sm font-semibold text-orange-300">1:1 coaching guide</h2>
+            </div>
+            {annualRevenueGap > 0 && (
+              <span className="text-xs text-orange-400 font-bold bg-orange-400/10 border border-orange-400/20 px-2 py-1 rounded-full">
+                {formatCurrency(annualRevenueGap)}/yr opportunity
+              </span>
+            )}
           </div>
           <p className="text-slate-400 text-sm mb-5 leading-relaxed">
-            {displayName.split(" ")[0]}&apos;s {formatPct(summary.avgRepeatRate)} repeat rate means most customers aren&apos;t coming back specifically for them.
-            A 10pt improvement would significantly impact your revenue.
-            Here are 3 questions for your next 1:1:
+            {displayName.split(" ")[0]}&apos;s {formatPct(summary.avgRepeatRate)} repeat rate means most customers aren&apos;t choosing to come back specifically for them.
+            {" "}A 10pt improvement would add roughly{" "}
+            <strong className="text-slate-200">
+              {formatCurrency(Math.round(summary.totalRevenue / Math.max(1, sortedStats.length) * 0.1 * 52))} per year
+            </strong>{" "}
+            in retained revenue. Use these questions in your next 1:1:
           </p>
           <ol className="space-y-3 mb-5">
             {[
-              `"Walk me through how you greet a customer — what do you say in the first 30 seconds?"`,
+              `"Walk me through how you greet a new customer — what do you say in the first 30 seconds?"`,
               `"Do you remember any regulars by name? What do you know about what they like?"`,
-              `"When a customer seems unhappy, what do you do? Can you give me a recent example?"`,
+              `"When a customer seems unhappy or hesitant, what do you do? Give me a recent example."`,
+              `"What's one thing you could do differently to make sure a customer wants to ask for you next time?"`,
             ].map((q, i) => (
               <li key={i} className="flex gap-3 text-sm text-slate-300">
                 <span className="text-orange-400 font-bold shrink-0 w-5">{i + 1}.</span>
@@ -310,8 +368,8 @@ export default function StaffDetailPage() {
               </li>
             ))}
           </ol>
-          <div className="bg-slate-900 rounded-xl p-3 text-xs text-slate-500 leading-relaxed">
-            Research shows that 3 behaviors drive repeat rate: recognizing customers by name, making personalized recommendations, and recovering from service issues on the spot.
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-500 leading-relaxed">
+            <strong className="text-slate-400">What the data says:</strong> The top 3 behaviors that drive repeat rate are (1) recognizing customers by name, (2) making personalized recommendations based on past visits, and (3) recovering from service issues on the spot before the customer leaves.
           </div>
         </div>
       )}

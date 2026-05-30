@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, Loader2, ExternalLink, CreditCard, Zap, Calculator } from "lucide-react";
+import { CheckCircle, Loader2, ExternalLink, CreditCard, Zap, Calculator, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PLANS = [
@@ -41,11 +41,15 @@ const PLANS = [
 
 export default function BillingPage() {
   const [org, setOrg] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
 
   useEffect(() => {
-    fetch("/api/dashboard").then((r) => r.json()).then((d) => setOrg(d.org));
+    fetch("/api/dashboard").then((r) => r.json()).then((d) => {
+      setOrg(d.org);
+      setDashboardData(d);
+    });
   }, []);
 
   async function handleSelectPlan(plan: string) {
@@ -107,6 +111,46 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Personalized ROI banner — shows real numbers if data exists */}
+      {dashboardData?.hasData && dashboardData?.overview && (() => {
+        const opp = dashboardData.overview.annualRevenueOpportunity ?? 0;
+        const labor = dashboardData.overview.annualLaborSavings ?? 0;
+        const total = opp + labor;
+        if (total < 500) return null;
+        const fmtK = (n: number) => n >= 10000 ? `$${Math.round(n / 1000)}k` : `$${n.toLocaleString()}`;
+        const planCost = 129 * 12; // annual standard
+        const roiX = total > 0 ? (total / planCost).toFixed(1) : "0";
+        return (
+          <div className="bg-gradient-to-r from-blue-950/80 to-slate-900 border border-blue-500/25 rounded-2xl px-6 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-blue-400" />
+              <span className="text-blue-300 text-sm font-semibold">Your actual numbers say it all</span>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mb-3">
+              <div>
+                <div className="text-2xl font-extrabold text-blue-300 tabular-nums">{fmtK(total)}/yr</div>
+                <div className="text-slate-500 text-xs mt-0.5">Total opportunity identified</div>
+              </div>
+              {opp > 0 && (
+                <div>
+                  <div className="text-xl font-bold text-green-300 tabular-nums">{fmtK(opp)}/yr</div>
+                  <div className="text-slate-500 text-xs mt-0.5">From repeat rate gap</div>
+                </div>
+              )}
+              {labor > 0 && (
+                <div>
+                  <div className="text-xl font-bold text-orange-300 tabular-nums">{fmtK(labor)}/yr</div>
+                  <div className="text-slate-500 text-xs mt-0.5">From labor overruns</div>
+                </div>
+              )}
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              Strata Standard is $129/mo. At your numbers, that&apos;s a <strong className="text-blue-300">{roiX}× annual ROI</strong> — purely from what&apos;s already sitting in your data.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Billing interval toggle */}
       <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 w-fit">
@@ -207,11 +251,18 @@ export default function BillingPage() {
 
       {/* ROI Calculator */}
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <Calculator className="w-4 h-4 text-slate-400" />
           <h2 className="font-semibold text-sm">ROI calculator</h2>
+          {dashboardData?.hasData && (
+            <span className="ml-auto text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">Pre-filled with your data</span>
+          )}
         </div>
-        <ROICalc />
+        <ROICalc
+          defaultWeeklyRevenue={dashboardData?.overview?.weeklyRevenue > 0 ? Math.round(dashboardData.overview.weeklyRevenue) : undefined}
+          defaultLaborTarget={dashboardData?.overview?.laborCostTarget > 0 ? Math.round(dashboardData.overview.laborCostTarget * 100) : undefined}
+          defaultCurrentLabor={dashboardData?.overview?.laborPct > 0 ? Math.round(dashboardData.overview.laborPct * 100) : undefined}
+        />
       </div>
 
       <div className="text-slate-600 text-xs text-center pb-4">
@@ -221,10 +272,18 @@ export default function BillingPage() {
   );
 }
 
-function ROICalc() {
-  const [weeklyRevenue, setWeeklyRevenue] = useState(12000);
-  const [laborTarget, setLaborTarget] = useState(30);
-  const [currentLabor, setCurrentLabor] = useState(36);
+function ROICalc({
+  defaultWeeklyRevenue,
+  defaultLaborTarget,
+  defaultCurrentLabor,
+}: {
+  defaultWeeklyRevenue?: number;
+  defaultLaborTarget?: number;
+  defaultCurrentLabor?: number;
+} = {}) {
+  const [weeklyRevenue, setWeeklyRevenue] = useState(defaultWeeklyRevenue ?? 12000);
+  const [laborTarget, setLaborTarget] = useState(defaultLaborTarget ?? 30);
+  const [currentLabor, setCurrentLabor] = useState(defaultCurrentLabor ?? 36);
 
   const monthlyRevenue = weeklyRevenue * 4.3;
   const laborGap = Math.max(0, currentLabor - laborTarget) / 100;

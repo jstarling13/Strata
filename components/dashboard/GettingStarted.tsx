@@ -56,7 +56,14 @@ const STEPS = [
 
 export default function GettingStarted({ hasData, hasDigest, plan }: Props) {
   const [open, setOpen] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem("strata_getting_started_dismissed") === "1"; } catch { return false; }
+  });
+
+  function dismiss() {
+    try { localStorage.setItem("strata_getting_started_dismissed", "1"); } catch {}
+    setDismissed(true);
+  }
 
   if (dismissed) return null;
 
@@ -98,7 +105,7 @@ export default function GettingStarted({ hasData, hasDigest, plan }: Props) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
             className="text-slate-600 hover:text-slate-400 transition-colors p-1"
             title="Dismiss"
           >

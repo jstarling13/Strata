@@ -73,6 +73,28 @@ export async function GET(req: NextRequest) {
 
   const prevWeekRevenue = prevStaffStats.reduce((s, m) => s + m.revenue, 0);
 
+  // Annual revenue opportunity: gap between top performer and below-median staff
+  const topRepeatRate = topStaff?.repeatRate ?? 0;
+  type StaffRow = (typeof staffStats)[number];
+  const sortedByRepeat: StaffRow[] = [...staffStats].sort((a, b) => a.repeatRate - b.repeatRate);
+  const medianRepeatRate = sortedByRepeat.length > 0
+    ? sortedByRepeat[Math.floor(sortedByRepeat.length / 2)].repeatRate
+    : 0;
+  const belowMedianStaff: StaffRow[] = sortedByRepeat.filter((s) => s.repeatRate < medianRepeatRate);
+  const annualRevenueOpportunity = staffStats.length >= 2 && topRepeatRate > 0
+    ? Math.round(
+        belowMedianStaff.reduce((sum: number, s: StaffRow) => {
+          const gap = Math.max(0, topRepeatRate - s.repeatRate);
+          return sum + s.revenue * gap * 0.25; // conservative 25% conversion factor
+        }, 0) * 52
+      )
+    : 0;
+
+  // Labor savings opportunity: weekly cost overrun vs target annualized
+  const targetLaborCost = totalRevenue * org.laborCostTarget;
+  const weeklyLaborOverrun = Math.max(0, totalLaborCost - targetLaborCost);
+  const annualLaborSavings = Math.round(weeklyLaborOverrun * 52);
+
   return NextResponse.json({
     org: {
       id: org.id,
@@ -94,6 +116,8 @@ export async function GET(req: NextRequest) {
       worstShift: worstShift && worstShift.laborPct > org.laborCostTarget
         ? { dayOfWeek: worstShift.dayOfWeek, shiftSlot: worstShift.shiftSlot, laborPct: worstShift.laborPct }
         : null,
+      annualRevenueOpportunity,
+      annualLaborSavings,
     },
     staffStats: staffStats.map((s) => ({
       id: s.staffId,

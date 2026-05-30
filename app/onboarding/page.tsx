@@ -63,13 +63,24 @@ export default function OnboardingPage() {
   async function saveBusinessInfo() {
     setLoading(true);
     try {
+      // Pass referral if one was captured at sign-up
+      let referredByOrgId: string | undefined;
+      try { referredByOrgId = localStorage.getItem("strata_referral") ?? undefined; } catch {}
+
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, type, locationCount, staffCount, laborCostTarget: laborTarget, staffRoles: roles }),
+        body: JSON.stringify({
+          name, type, locationCount, staffCount, laborCostTarget: laborTarget, staffRoles: roles,
+          ...(referredByOrgId ? { referredByOrgId } : {}),
+        }),
       });
       const data = await res.json();
       if (data.orgId) setOrgId(data.orgId);
+
+      // Clear the referral once saved so it doesn't re-link on re-submission
+      try { localStorage.removeItem("strata_referral"); } catch {}
+
       setStep(2);
     } finally {
       setLoading(false);
@@ -138,7 +149,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete" }),
       });
-      router.push("/dashboard");
+      router.push("/dashboard?welcome=1");
     } finally {
       setLoading(false);
     }
@@ -461,45 +472,70 @@ export default function OnboardingPage() {
 
           {/* Step 5: Confirm */}
           {step === 5 && (
-            <div className="space-y-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold mb-2">You&apos;re all set</h1>
-                <p className="text-slate-400">We&apos;re analyzing your last 90 days of data. Your first performance report will be ready within a few hours — we&apos;ll email you when it&apos;s done.</p>
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-blue-400" />
+                </div>
+                <h1 className="text-2xl font-bold mb-2">You&apos;re all set, {name.split(" ")[0] || "there"}!</h1>
+                <p className="text-slate-400 text-sm">
+                  We&apos;re crunching your last 90 days of data right now. Here&apos;s what Strata will surface for you:
+                </p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-left space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Business</span>
-                  <span className="text-slate-100 font-medium">{name}</span>
+              {/* Preview of what they'll see */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { emoji: "📊", title: "Staff performance ranking", detail: "Who drives the most repeat customers — ranked and sorted" },
+                  { emoji: "🔥", title: "Shift profitability heatmap", detail: "Which days/times are bleeding labor vs. running clean" },
+                  { emoji: "⚡", title: "Weekly AI digest", detail: "One email every week: top insight, biggest opportunity, quick wins" },
+                  { emoji: "💰", title: "Revenue gap estimates", detail: "Dollar impact if you close your top 2 performance gaps" },
+                ].map((item, i) => (
+                  <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                    <div className="text-2xl mb-2">{item.emoji}</div>
+                    <div className="text-slate-100 text-xs font-semibold mb-1">{item.title}</div>
+                    <div className="text-slate-500 text-xs leading-relaxed">{item.detail}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Configuration summary */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left">
+                <div className="text-xs font-semibold uppercase tracking-widest text-slate-600 mb-3">Your setup</div>
+                <div className="space-y-2.5">
+                  {[
+                    { label: "Business", value: name },
+                    { label: "Type", value: type, capitalize: true },
+                    { label: "Data source", value: dataSource || "—", capitalize: true },
+                    { label: "Labor target", value: `${Math.round(laborTarget * 100)}% of revenue` },
+                    { label: "Roles", value: `${roles.length} role${roles.length !== 1 ? "s" : ""} · ${roles.map(r => r.role).join(", ")}` },
+                  ].map(({ label, value, capitalize }) => (
+                    <div key={label} className="flex justify-between text-sm gap-4">
+                      <span className="text-slate-500">{label}</span>
+                      <span className={cn("text-slate-100 font-medium text-right", capitalize && "capitalize")}>{value}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Type</span>
-                  <span className="text-slate-100 capitalize">{type}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Data source</span>
-                  <span className="text-slate-100 capitalize">{dataSource || "—"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Labor target</span>
-                  <span className="text-slate-100">{Math.round(laborTarget * 100)}% of sales</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Staff roles</span>
-                  <span className="text-slate-100">{roles.length} role{roles.length !== 1 ? "s" : ""}</span>
-                </div>
+              </div>
+
+              {/* Processing notice */}
+              <div className="flex items-start gap-3 bg-blue-600/5 border border-blue-500/20 rounded-xl px-4 py-3">
+                <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0 mt-0.5" />
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  <strong className="text-blue-300">Analysis in progress.</strong>{" "}
+                  Square and Toast usually finish within 2–4 minutes. CSV is typically 30 seconds.
+                  We&apos;ll send a notification to <strong className="text-slate-300">{user?.primaryEmailAddress?.emailAddress || "your email"}</strong> when your first digest is ready.
+                </p>
               </div>
 
               <button
                 onClick={complete}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-4 rounded-xl transition-colors text-lg"
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-4 rounded-xl transition-colors text-base"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Go to dashboard <ArrowRight className="w-5 h-5" /></>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Go to my dashboard <ArrowRight className="w-5 h-5" /></>}
               </button>
+              <p className="text-center text-slate-600 text-xs">Your data is being processed in the background — the dashboard is available now.</p>
             </div>
           )}
 

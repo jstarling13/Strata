@@ -26,6 +26,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     take: 100,
   });
 
+  // Pull all staff weekly stats for the org to compute team benchmarks
+  const allStaffLatestStats = await prisma.staffWeeklyStats.findMany({
+    where: { orgId: org.id },
+    orderBy: { weekOf: "desc" },
+    distinct: ["staffId"],
+  });
+
+  const teamRepeatRates = allStaffLatestStats.map((s) => s.repeatRate);
+  const teamAvgRepeatRate =
+    teamRepeatRates.length > 0
+      ? teamRepeatRates.reduce((a, b) => a + b, 0) / teamRepeatRates.length
+      : null;
+  const topRepeatRate = teamRepeatRates.length > 0 ? Math.max(...teamRepeatRates) : null;
+
   const totalRevenue = weeklyStats.reduce((s, w) => s + w.revenue, 0);
   const totalTransactions = weeklyStats.reduce((s, w) => s + w.transactions, 0);
   const avgRepeatRate =
@@ -38,6 +52,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     weeklyStats,
     summary: { totalRevenue, totalTransactions, avgRepeatRate },
     recentVisits: visits.slice(0, 20),
+    teamAvgRepeatRate,
+    topRepeatRate,
   });
 }
 

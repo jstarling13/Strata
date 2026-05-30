@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle, TrendingDown, Users, BarChart3, ArrowRight, Check } from "lucide-react";
-import { formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
+import { formatCurrency, formatPct, dayLabel, shiftSlotLabel, cn } from "@/lib/utils";
 
 interface Props {
   overview: {
@@ -31,6 +31,7 @@ interface Win {
   title: string;
   action: string;
   priority: "high" | "medium" | "low";
+  impact?: string; // dollar impact string e.g. "Save ~$640/wk"
 }
 
 function priorityLabel(p: Win["priority"]) {
@@ -46,13 +47,17 @@ export default function QuickWins({ overview, staffStats, latestDigest }: Props)
   if (overview.worstShift) {
     const overBy = overview.worstShift.laborPct - overview.laborCostTarget;
     const pctOver = Math.round((overBy / overview.laborCostTarget) * 100);
+    // Est: worst shift is roughly 1/14 of weekly revenue (2 slots/day × 7 days)
+    const shiftRevEst = overview.weeklyRevenue / 14;
+    const weeklyOverrun = Math.round(shiftRevEst * overBy);
     wins.push({
       icon: <BarChart3 className="w-4 h-4" />,
       color: "text-red-400",
       label: "Costly shift",
       title: `${dayLabel(overview.worstShift.dayOfWeek)} ${shiftSlotLabel(overview.worstShift.shiftSlot)} is ${pctOver}% over your labor target`,
-      action: `Review staffing for ${dayLabel(overview.worstShift.dayOfWeek)} ${shiftSlotLabel(overview.worstShift.shiftSlot)}. Consider cutting one shift or moving a part-timer to a higher-revenue slot.`,
+      action: `Review staffing for ${dayLabel(overview.worstShift.dayOfWeek)} ${shiftSlotLabel(overview.worstShift.shiftSlot)}. Consider cutting one part-timer or shortening the shift by an hour to bring this under ${formatPct(overview.laborCostTarget)}.`,
       priority: pctOver > 50 ? "high" : "medium",
+      impact: weeklyOverrun > 0 ? `~${formatCurrency(weeklyOverrun)}/wk overrun` : undefined,
     });
   }
 
@@ -64,6 +69,10 @@ export default function QuickWins({ overview, staffStats, latestDigest }: Props)
   if (droppedStaff.length > 0) {
     const s = droppedStaff[0];
     const drop = Math.abs(Math.round((s.repeatRate - s.prevRepeatRate!) * 100));
+    // Est: each 1pt drop in repeat rate ≈ 1% fewer return visits → revenue impact
+    const dropImpact = s.transactions > 0
+      ? Math.round((overview.weeklyRevenue / staffStats.length) * (Math.abs(s.repeatRate - s.prevRepeatRate!) * 0.5) * 52)
+      : 0;
     wins.push({
       icon: <Users className="w-4 h-4" />,
       color: "text-orange-400",
@@ -71,31 +80,36 @@ export default function QuickWins({ overview, staffStats, latestDigest }: Props)
       title: `${s.name}'s repeat rate dropped ${drop}pts this week`,
       action: `Talk to ${s.name} today. A drop this size usually signals something specific — a bad shift, a customer complaint, or a schedule change. Ask what happened.`,
       priority: "high",
+      impact: dropImpact > 0 ? `${formatCurrency(dropImpact)}/yr at risk` : undefined,
     });
   }
 
   // 3. Labor cost over target overall
   if (overview.laborPct > overview.laborCostTarget * 1.05 && !overview.worstShift) {
-    const over = formatPct(overview.laborPct - overview.laborCostTarget);
+    const overBy = overview.laborPct - overview.laborCostTarget;
+    const weeklyOverrun = Math.round(overview.weeklyRevenue * overBy);
     wins.push({
       icon: <TrendingDown className="w-4 h-4" />,
       color: "text-amber-400",
       label: "Labor over target",
-      title: `Overall labor cost is ${over} above your ${formatPct(overview.laborCostTarget)} target`,
-      action: "Check the heatmap below for which specific shifts are pulling your labor % up. Focus reduction efforts there first.",
+      title: `Overall labor cost is ${formatPct(overBy)} above your ${formatPct(overview.laborCostTarget)} target`,
+      action: "Check the shift heatmap below to see exactly which slots are over-budget. Focus reduction on those first — moving one part-timer can often close the gap.",
       priority: "medium",
+      impact: weeklyOverrun > 0 ? `${formatCurrency(weeklyOverrun)}/wk excess` : undefined,
     });
   }
 
-  // 4. Top performer isn't staffed on best shift
+  // 4. Top performer — scheduling opportunity
   if (overview.topStaff && overview.bestShift) {
+    const repeatLift = Math.round(overview.weeklyRevenue * overview.topStaff.repeatRate * 0.06);
     wins.push({
       icon: <CheckCircle className="w-4 h-4" />,
       color: "text-green-400",
       label: "Scheduling opportunity",
       title: `${overview.topStaff.name} has the highest repeat rate at ${formatPct(overview.topStaff.repeatRate)}`,
-      action: `Make sure ${overview.topStaff.name} is scheduled during your busiest shifts, especially ${dayLabel(overview.bestShift.dayOfWeek)} ${shiftSlotLabel(overview.bestShift.shiftSlot)} where revenue is highest.`,
+      action: `Make sure ${overview.topStaff.name} covers your highest-revenue slots — especially ${dayLabel(overview.bestShift.dayOfWeek)} ${shiftSlotLabel(overview.bestShift.shiftSlot)} where revenue potential is highest.`,
       priority: "medium",
+      impact: repeatLift > 0 ? `+${formatCurrency(repeatLift)}/wk potential` : undefined,
     });
   }
 
@@ -154,22 +168,35 @@ function WinCard({ win, storageKey }: { win: Win; storageKey: string }) {
 
   return (
     <div className={cn(
-      "border rounded-2xl p-4 flex flex-col gap-3 transition-all",
+      "border rounded-2xl p-4 flex flex-col gap-3 transition-all duration-300",
       done ? "bg-slate-900/50 border-green-500/30 opacity-75" : "bg-slate-900 border-slate-800"
     )}>
-      <div className="flex items-center justify-between">
+      {/* Header row */}
+      <div className="flex items-center justify-between gap-2">
         <span className={cn("flex items-center gap-1.5 text-xs font-semibold", done ? "text-slate-500" : win.color)}>
           {win.icon}
           {win.label}
         </span>
-        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", badge.cls)}>
-          {badge.text}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {win.impact && !done && (
+            <span className="text-xs font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full tabular-nums">
+              {win.impact}
+            </span>
+          )}
+          <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap", badge.cls)}>
+            {badge.text}
+          </span>
+        </div>
       </div>
+
       <p className={cn("text-sm font-medium leading-snug", done ? "text-slate-500 line-through" : "text-slate-200")}>{win.title}</p>
-      <div className="mt-auto bg-slate-800 rounded-xl p-3">
-        <p className="text-slate-400 text-xs leading-relaxed">{win.action}</p>
-      </div>
+
+      {!done && (
+        <div className="mt-auto bg-slate-800 rounded-xl p-3">
+          <p className="text-slate-400 text-xs leading-relaxed">{win.action}</p>
+        </div>
+      )}
+
       <button
         onClick={toggleDone}
         className={cn(

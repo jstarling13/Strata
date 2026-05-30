@@ -49,6 +49,26 @@ export async function POST(req: NextRequest) {
     const totalRevenueSurveyed = allStaffStats.reduce((s: number, m: any) => s + (m.revenue ?? 0), 0);
     const insightCount = allDigests.reduce((s, d) => s + ((d.insightsJson as any[])?.length ?? 0), 0);
 
+    // Compute annual revenue opportunity (latest week data)
+    const latestWeekStats = await prisma.staffWeeklyStats.findMany({
+      where: { orgId: org.id },
+      orderBy: { weekOf: "desc" },
+      distinct: ["staffId"],
+    });
+    const topRate = latestWeekStats.length > 0 ? Math.max(...latestWeekStats.map((s: any) => s.repeatRate)) : 0;
+    const sortedRates = [...latestWeekStats].sort((a: any, b: any) => a.repeatRate - b.repeatRate);
+    const medianRate = sortedRates.length > 0 ? sortedRates[Math.floor(sortedRates.length / 2)] as any : null;
+    const annualOpportunity = latestWeekStats.length >= 2 && topRate > 0
+      ? Math.round(
+          latestWeekStats
+            .filter((s: any) => s.repeatRate < (medianRate?.repeatRate ?? topRate))
+            .reduce((sum: number, s: any) => {
+              const gap = Math.max(0, topRate - s.repeatRate);
+              return sum + s.revenue * gap * 0.25;
+            }, 0) * 52
+        )
+      : 0;
+
     try {
       const { createClerkClient } = await import("@clerk/nextjs/server");
       const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -62,11 +82,15 @@ export async function POST(req: NextRequest) {
         revenue: (topStaff as any).revenue ?? 0,
       } : null;
 
+      const subject = annualOpportunity >= 1000
+        ? `${org.name}: $${Math.round(annualOpportunity / 1000)}k/yr identified — your trial ends in 2 days`
+        : `Your Strata trial ends in 2 days — ${insightCount} insights ready`;
+
       await resend.emails.send({
         from: FROM,
         to: email,
-        subject: `Your Strata trial ends in 2 days — ${insightCount} insights ready`,
-        html: buildTrialNudgeEmail(org.name, topInsight, topStaffWithRevenue, totalRevenueSurveyed, insightCount),
+        subject,
+        html: buildTrialNudgeEmail(org.name, topInsight, topStaffWithRevenue, totalRevenueSurveyed, insightCount, annualOpportunity),
       });
       sent++;
     } catch (e) {
@@ -82,10 +106,12 @@ function buildTrialNudgeEmail(
   topInsight: { title: string; body: string; action?: string } | null,
   topStaff: { staff: { displayName: string }; repeatRate: number; revenue: number } | null,
   totalRevenueSurveyed?: number,
-  insightCount?: number
+  insightCount?: number,
+  annualOpportunity?: number
 ): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://strata.ai";
   const fmtCurrency = (n: number) => "$" + Math.round(n).toLocaleString();
+  const fmtK = (n: number) => n >= 10000 ? `$${Math.round(n / 1000)}k` : `$${Math.round(n).toLocaleString()}`;
 
   // Key insight card
   const insightHtml = topInsight ? `
@@ -128,6 +154,14 @@ function buildTrialNudgeEmail(
       </div>
     </div>` : "";
 
+  // Annual opportunity callout
+  const opportunityHtml = (annualOpportunity ?? 0) >= 500 ? `
+    <div style="background:linear-gradient(135deg,#172554,#1e293b);border:1px solid #3b82f644;border-radius:14px;padding:20px 24px;margin-bottom:20px;">
+      <div style="color:#64748b;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Identified in your data — closing in 2 days</div>
+      <div style="color:#93c5fd;font-size:32px;font-weight:800;line-height:1.1;margin-bottom:6px;">${fmtK(annualOpportunity ?? 0)}/yr</div>
+      <div style="color:#64748b;font-size:13px;line-height:1.5;">This is how much you'd recover annually by closing the repeat-rate gap between your top and bottom staff. It stays buried without Strata.</div>
+    </div>` : "";
+
   // What you'll lose
   const loseHtml = `
     <div style="background:#1a1010;border:1px solid #44222244;border-radius:12px;padding:16px 20px;margin:20px 0;">
@@ -160,6 +194,9 @@ function buildTrialNudgeEmail(
     <p style="color:#64748b;font-size:14px;margin:0 0 24px;line-height:1.6;">
       Your trial has surfaced some real data. Here's what continues — and what stops — on day 14.
     </p>
+
+    <!-- Annual opportunity -->
+    ${opportunityHtml}
 
     <!-- Stats summary -->
     ${statsHtml}

@@ -41,8 +41,11 @@ export async function runAnomalyCheck(orgId: string) {
     }
   }
 
+  // Use per-org alert threshold (stored as integer pts, e.g. 20 = "fire when 20pp over target")
+  const laborSpikeThreshold = org.laborCostTarget + (org.alertThreshold ?? 20) / 100;
+
   for (const shift of shiftPerf) {
-    if ((shift as any).laborPct > org.laborCostTarget * 1.5) {
+    if ((shift as any).laborPct > laborSpikeThreshold) {
       const excessLaborCost = (shift as any).laborCost - ((shift as any).totalSales * org.laborCostTarget);
       alerts.push({
         type: "labor_cost_spike",
@@ -57,7 +60,10 @@ export async function runAnomalyCheck(orgId: string) {
 
   if (alerts.length === 0) return;
 
-  const user = await getUserEmail(org.clerkUserId);
+  // Respect per-org alert email preference
+  const shouldSendEmail = org.alertEmailEnabled !== false;
+  const user = shouldSendEmail ? await getUserEmail(org.clerkUserId) : null;
+
   for (const alert of alerts) {
     const record = await prisma.anomalyAlert.create({
       data: { orgId, type: alert.type, message: alert.message },

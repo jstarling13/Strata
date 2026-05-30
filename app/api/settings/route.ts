@@ -14,6 +14,14 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Count referrals
+  const referralCount = await prisma.organization.count({
+    where: { referredByOrgId: org.id },
+  });
+  const convertedReferralCount = await prisma.organization.count({
+    where: { referredByOrgId: org.id, plan: { in: ["standard", "plus"] } },
+  });
+
   return NextResponse.json({
     org: {
       id: org.id,
@@ -22,10 +30,18 @@ export async function GET(req: NextRequest) {
       laborCostTarget: org.laborCostTarget,
       plan: org.plan,
       trialEndsAt: org.trialEndsAt,
+      digestDay: org.digestDay,
+      alertEmailEnabled: org.alertEmailEnabled,
+      alertThreshold: org.alertThreshold,
     },
     dataSource: dataSource
       ? { type: dataSource.type, lastSyncAt: dataSource.lastSyncAt, status: dataSource.status }
       : null,
+    referrals: {
+      total: referralCount,
+      converted: convertedReferralCount,
+      creditsEarned: convertedReferralCount, // 1 month per converted referral
+    },
   });
 }
 
@@ -37,15 +53,27 @@ export async function PATCH(req: NextRequest) {
   if (!org) return NextResponse.json({ error: "Org not found" }, { status: 404 });
 
   const body = await req.json();
-  const { name, laborCostTarget } = body;
+  const { name, laborCostTarget, digestDay, alertEmailEnabled, alertThreshold } = body;
 
   const updated = await prisma.organization.update({
     where: { id: org.id },
     data: {
       ...(name ? { name } : {}),
       ...(laborCostTarget != null ? { laborCostTarget } : {}),
+      ...(digestDay != null ? { digestDay } : {}),
+      ...(alertEmailEnabled != null ? { alertEmailEnabled } : {}),
+      ...(alertThreshold != null ? { alertThreshold } : {}),
     },
   });
 
-  return NextResponse.json({ ok: true, org: { name: updated.name, laborCostTarget: updated.laborCostTarget } });
+  return NextResponse.json({
+    ok: true,
+    org: {
+      name: updated.name,
+      laborCostTarget: updated.laborCostTarget,
+      digestDay: updated.digestDay,
+      alertEmailEnabled: updated.alertEmailEnabled,
+      alertThreshold: updated.alertThreshold,
+    },
+  });
 }

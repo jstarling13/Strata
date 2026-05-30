@@ -12,6 +12,9 @@ import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
 import SchedulingTips from "@/components/dashboard/SchedulingTips";
 import StaffLeaderboard from "@/components/dashboard/StaffLeaderboard";
 import StaffComparison from "@/components/dashboard/StaffComparison";
+import SmartSummary from "@/components/dashboard/SmartSummary";
+import QuickWins from "@/components/dashboard/QuickWins";
+import OpportunityBanner from "@/components/dashboard/OpportunityBanner";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 import Link from "next/link";
 
@@ -110,6 +113,14 @@ export default function DemoPage() {
           </div>
         </div>
 
+        {/* Annual opportunity — this is the conversion hook for demo visitors */}
+        <OpportunityBanner
+          annualRevenueOpportunity={overview.annualRevenueOpportunity ?? 0}
+          annualLaborSavings={overview.annualLaborSavings ?? 0}
+          topStaffName={overview.topStaff?.name}
+          weeklyRevenue={overview.weeklyRevenue}
+        />
+
         {/* Overview cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {overviewCards.map((card) => (
@@ -138,6 +149,19 @@ export default function DemoPage() {
           </div>
         )}
 
+        {/* Smart summary */}
+        <SmartSummary
+          weeklyRevenue={overview.weeklyRevenue}
+          prevWeekRevenue={overview.prevWeekRevenue ?? null}
+          laborPct={overview.laborPct}
+          laborCostTarget={overview.laborCostTarget}
+          teamAvgRepeatRate={overview.teamAvgRepeatRate}
+          prevTeamAvgRepeatRate={overview.prevTeamAvgRepeatRate ?? null}
+          topStaffName={overview.topStaff?.name}
+          worstShiftDay={overview.worstShift ? dayLabel(overview.worstShift.dayOfWeek) : undefined}
+          worstShiftSlot={overview.worstShift ? shiftSlotLabel(overview.worstShift.shiftSlot) : undefined}
+        />
+
         {/* Week summary */}
         <WeekSummary
           weeklyRevenue={overview.weeklyRevenue}
@@ -156,6 +180,9 @@ export default function DemoPage() {
 
         {/* Revenue trend */}
         {revenueTrend?.length >= 2 && <RevenueTrend data={revenueTrend} />}
+
+        {/* Quick wins */}
+        <QuickWins overview={overview} staffStats={staffStats} latestDigest={latestDigest} />
 
         {/* Scheduling tips */}
         <SchedulingTips

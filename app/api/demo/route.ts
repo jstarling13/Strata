@@ -83,8 +83,20 @@ export async function GET() {
     },
   ];
 
-  // Simulate 4-week revenue trend
+  // Compute annual revenue opportunity for demo
+  const topDemoRate = 0.68; // Maria
+  const demoMedianRate = 0.45; // James (median of sorted array)
+  const belowMedianDemo = staffStats.filter((s) => s.repeatRate < demoMedianRate);
+  const annualRevenueOpportunity = Math.round(
+    belowMedianDemo.reduce((sum, s) => {
+      const gap = Math.max(0, topDemoRate - s.repeatRate);
+      return sum + s.revenue * gap * 0.25;
+    }, 0) * 52
+  );
+  const demoLaborPct = 0.34;
+  const demoTarget = 0.3;
   const weeklyRevenue = staffStats.reduce((s, m) => s + m.revenue, 0);
+  const annualLaborSavings = Math.round((demoLaborPct - demoTarget) * weeklyRevenue * 52);
   const revenueTrend = [
     { weekOf: new Date(Date.now() - 21 * 86400000).toISOString(), revenue: weeklyRevenue * 0.82 },
     { weekOf: new Date(Date.now() - 14 * 86400000).toISOString(), revenue: weeklyRevenue * 0.89 },
@@ -105,15 +117,17 @@ export async function GET() {
     overview: {
       weeklyRevenue,
       prevWeekRevenue: weeklyRevenue * 0.93,
-      laborPct: 0.34,
-      laborCostTarget: 0.3,
+      laborPct: demoLaborPct,
+      laborCostTarget: demoTarget,
       topStaff: { name: "Maria Santos", repeatRate: 0.68 },
       teamAvgRepeatRate: Math.round(teamAvgRepeat * 1000) / 1000,
       prevTeamAvgRepeatRate: Math.round(teamAvgRepeat * 1000) / 1000 - 0.02,
       bestShift: { dayOfWeek: bestShift.dayOfWeek, shiftSlot: bestShift.shiftSlot, laborPct: bestShift.laborPct },
-      worstShift: worstShift.laborPct > 0.3
+      worstShift: worstShift.laborPct > demoTarget
         ? { dayOfWeek: worstShift.dayOfWeek, shiftSlot: worstShift.shiftSlot, laborPct: worstShift.laborPct }
         : null,
+      annualRevenueOpportunity,
+      annualLaborSavings,
     },
     staffStats: staffStats.map((s) => ({
       ...s,

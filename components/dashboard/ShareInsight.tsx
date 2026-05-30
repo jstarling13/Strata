@@ -1,35 +1,44 @@
 "use client";
 
 import { useState } from "react";
-import { Share2, Copy, Check, X, Twitter, Facebook } from "lucide-react";
+import { Share2, Copy, Check, X, Gift, ExternalLink } from "lucide-react";
 
 interface Props {
   orgName: string;
+  orgId?: string;
   topStaffName?: string;
   topStaffRepeatRate?: number;
   laborPct?: number;
   laborCostTarget?: number;
 }
 
-export default function ShareInsight({ orgName, topStaffName, topStaffRepeatRate, laborPct, laborCostTarget }: Props) {
+export default function ShareInsight({ orgName, orgId, topStaffName, topStaffRepeatRate, laborPct, laborCostTarget }: Props) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "https://strata.ai";
+  const referralUrl = orgId ? `${appUrl}/sign-up?ref=${orgId}` : `${appUrl}/sign-up`;
 
   const pct = topStaffRepeatRate ? Math.round(topStaffRepeatRate * 100) : null;
-  const laborOver = laborPct && laborCostTarget ? Math.round((laborPct - laborCostTarget) * 100) : null;
 
   const shareText = pct
-    ? `Just found out that my top server has a ${pct}% repeat customer rate while my bottom server is at ${Math.round((pct * 0.32))}%. That gap is worth ~$1,800/month. @StrataAI surfaced this in one click from my Square data.`
-    : `Used Strata to analyze 90 days of POS data. Turns out one shift was running at ${laborPct ? Math.round(laborPct * 100) : 34}% labor cost — way over my ${laborCostTarget ? Math.round(laborCostTarget * 100) : 30}% target. Fixed it this week.`;
+    ? `Just found out my top server has a ${pct}% repeat customer rate while my bottom is at ${Math.round(pct * 0.45)}%. That gap is worth ~$1,800/month. @StrataAI surfaced this from Square data in minutes.\n\nFree trial: ${referralUrl}`
+    : `Used Strata to analyze 90 days of POS data. One shift was running at ${laborPct ? Math.round(laborPct * 100) : 38}% labor — way over my ${laborCostTarget ? Math.round(laborCostTarget * 100) : 30}% target. Fixed it this week.\n\nFree trial: ${referralUrl}`;
 
   function copyText() {
     navigator.clipboard.writeText(shareText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 2000);
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(referralUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   }
 
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
-  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent("https://strata.ai")}&quote=${encodeURIComponent(shareText)}`;
 
   if (!open) {
     return (
@@ -38,26 +47,53 @@ export default function ShareInsight({ orgName, topStaffName, topStaffRepeatRate
         className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
       >
         <Share2 className="w-3.5 h-3.5" />
-        Share insight
+        Share
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setOpen(false)}>
       <div
-        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl"
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-lg">Share your insight</h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-bold text-lg">Share your results</h2>
           <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="bg-slate-800 rounded-xl p-4 mb-4">
-          <p className="text-slate-200 text-sm leading-relaxed">{shareText}</p>
+        {/* Referral section */}
+        {orgId && (
+          <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4 mb-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Gift className="w-4 h-4 text-blue-400" />
+              <span className="text-blue-300 text-sm font-semibold">Earn 1 free month per referral</span>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed mb-3">
+              Share your referral link. Every owner who starts a trial through your link earns you 1 month free — credited automatically when they upgrade.
+            </p>
+            <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
+              <span className="text-slate-400 text-xs font-mono flex-1 truncate">{referralUrl}</span>
+              <button
+                onClick={copyLink}
+                className="shrink-0 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedLink ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Share text */}
+        <div className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Ready-to-post copy</p>
+          <div className="bg-slate-800 rounded-xl p-4">
+            <p className="text-slate-200 text-sm leading-relaxed">{shareText}</p>
+          </div>
         </div>
 
         <div className="flex gap-3">
@@ -65,32 +101,19 @@ export default function ShareInsight({ orgName, topStaffName, topStaffRepeatRate
             onClick={copyText}
             className="flex-1 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2.5 rounded-xl transition-colors"
           >
-            {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-            {copied ? "Copied!" : "Copy text"}
+            {copiedText ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+            {copiedText ? "Copied!" : "Copy text"}
           </button>
           <a
             href={twitterUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
           >
-            <Twitter className="w-4 h-4" />
-            Tweet
-          </a>
-          <a
-            href={facebookUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 bg-blue-700 hover:bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <Facebook className="w-4 h-4" />
-            Share
+            <ExternalLink className="w-4 h-4" />
+            Post to X
           </a>
         </div>
-
-        <p className="text-slate-600 text-xs mt-3 text-center">
-          Help other restaurant owners find Strata — and get 1 month free for each trial they start.
-        </p>
       </div>
     </div>
   );

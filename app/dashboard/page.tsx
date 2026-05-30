@@ -18,6 +18,8 @@ import WeekSummary from "@/components/dashboard/WeekSummary";
 import TeamHealthScore from "@/components/dashboard/TeamHealthScore";
 import StaffComparison from "@/components/dashboard/StaffComparison";
 import SmartSummary from "@/components/dashboard/SmartSummary";
+import OpportunityBanner from "@/components/dashboard/OpportunityBanner";
+import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
 
 function DashboardInner() {
@@ -25,12 +27,16 @@ function DashboardInner() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showUpgradeToast, setShowUpgradeToast] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
     if (searchParams.get("upgraded") === "true") {
       setShowUpgradeToast(true);
       setTimeout(() => setShowUpgradeToast(false), 6000);
+    }
+    if (searchParams.get("welcome") === "1") {
+      setShowWelcome(true);
     }
   }, [searchParams]);
 
@@ -62,27 +68,30 @@ function DashboardInner() {
   // Empty state — no data synced yet
   if (!data.hasData) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 rounded-full bg-blue-600/10 flex items-center justify-center mb-6">
-          <Sparkles className="w-8 h-8 text-blue-400" />
-        </div>
-        <h2 className="text-xl font-bold mb-2">Your data is being processed</h2>
-        <p className="text-slate-400 text-sm max-w-md mb-8 leading-relaxed">
-          We&apos;re analyzing your last 90 days. This usually takes a few minutes for Square/Toast, or a few seconds for CSV.
-          Your first digest will be ready shortly.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={() => load(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
-          >
-            <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-            Check again
-          </button>
-          <Link href="/onboarding" className="text-sm text-slate-400 hover:text-slate-300 px-5 py-2.5 rounded-xl border border-slate-700 transition-colors">
-            Add another data source
-          </Link>
+      <div className="space-y-6">
+        {showWelcome && <WelcomeBanner orgName={data.org?.name ?? "there"} hasData={false} />}
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-16 h-16 rounded-full bg-blue-600/10 flex items-center justify-center mb-6">
+            <Sparkles className="w-8 h-8 text-blue-400" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Your data is being processed</h2>
+          <p className="text-slate-400 text-sm max-w-md mb-8 leading-relaxed">
+            We&apos;re analyzing your last 90 days. This usually takes a few minutes for Square/Toast, or a few seconds for CSV.
+            Your first digest will be ready shortly.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+            >
+              <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+              Check again
+            </button>
+            <Link href="/onboarding" className="text-sm text-slate-400 hover:text-slate-300 px-5 py-2.5 rounded-xl border border-slate-700 transition-colors">
+              Add another data source
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -133,6 +142,11 @@ function DashboardInner() {
 
   return (
     <div className="space-y-8">
+      {/* Welcome banner — shown once on first arrival from onboarding */}
+      {showWelcome && (
+        <WelcomeBanner orgName={org.name} hasData={!!hasData} />
+      )}
+
       {/* Upgrade toast */}
       {showUpgradeToast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-800 border border-green-500/30 rounded-2xl px-5 py-4 shadow-2xl">
@@ -174,6 +188,7 @@ function DashboardInner() {
         <div className="flex items-center gap-3">
           <ShareInsight
             orgName={org.name}
+            orgId={org.id}
             topStaffName={overview.topStaff?.name}
             topStaffRepeatRate={overview.topStaff?.repeatRate}
             laborPct={overview.laborPct}
@@ -225,6 +240,16 @@ function DashboardInner() {
         ))}
       </div>
 
+      {/* Annual revenue opportunity */}
+      {(overview.annualRevenueOpportunity > 0 || overview.annualLaborSavings > 0) && (
+        <OpportunityBanner
+          annualRevenueOpportunity={overview.annualRevenueOpportunity}
+          annualLaborSavings={overview.annualLaborSavings}
+          topStaffName={overview.topStaff?.name}
+          weeklyRevenue={overview.weeklyRevenue}
+        />
+      )}
+
       {/* Week comparison summary */}
       <WeekSummary
         weeklyRevenue={overview.weeklyRevenue}
@@ -245,7 +270,9 @@ function DashboardInner() {
       {revenueTrend?.length >= 2 && <RevenueTrend data={revenueTrend} />}
 
       {/* Quick wins */}
-      <QuickWins overview={overview} staffStats={staffStats} latestDigest={latestDigest} />
+      <div id="quick-wins-section">
+        <QuickWins overview={overview} staffStats={staffStats} latestDigest={latestDigest} />
+      </div>
 
       {/* Staff table */}
       <div>

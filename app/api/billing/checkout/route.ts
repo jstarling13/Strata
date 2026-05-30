@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     payment_method_types: ["card"],
     line_items: [{ price: resolvedPrice, quantity: 1 }],
     subscription_data: { trial_period_days: 14 },
-    success_url: `${appUrl}/dashboard?upgraded=true`,
+    success_url: `${appUrl}/dashboard/upgrade-success?plan=${plan}&interval=${interval}`,
     cancel_url: `${appUrl}/dashboard/billing`,
     metadata: { orgId: org.id, plan, interval },
   });
