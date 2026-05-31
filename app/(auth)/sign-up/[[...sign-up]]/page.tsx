@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { SignUp } from "@clerk/nextjs";
-import { CheckCircle, TrendingUp, Users, DollarSign } from "lucide-react";
+import { CheckCircle, TrendingUp, Users, DollarSign, Gift } from "lucide-react";
 import ReferralCapture from "@/components/ReferralCapture";
+import { prisma } from "@/lib/prisma";
 
 const VALUE_BULLETS = [
   {
@@ -18,7 +19,27 @@ const VALUE_BULLETS = [
   },
 ];
 
-export default function SignUpPage() {
+export default async function SignUpPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const ref = typeof searchParams.ref === "string" ? searchParams.ref : null;
+
+  // Look up referrer org name for personalized banner
+  let referrerName: string | null = null;
+  if (ref) {
+    try {
+      const referrer = await prisma.organization.findUnique({
+        where: { id: ref },
+        select: { name: true },
+      });
+      referrerName = referrer?.name ?? null;
+    } catch {
+      // If DB lookup fails, just don't show the banner
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-4xl flex flex-col md:flex-row gap-12 items-center">
@@ -34,7 +55,7 @@ export default function SignUpPage() {
             Turn your POS data into <span className="text-blue-400">profit decisions</span>
           </h1>
           <p className="text-slate-400 text-sm mb-8 leading-relaxed max-w-sm">
-            Connect Square, Toast, or a CSV export. In minutes, you'll know which staff drive loyalty, which shifts bleed labor, and exactly what to fix first.
+            Connect Square, Toast, or a CSV export. In minutes, you&apos;ll know which staff drive loyalty, which shifts bleed labor, and exactly what to fix first.
           </p>
 
           <ul className="space-y-4 mb-10">
@@ -56,7 +77,7 @@ export default function SignUpPage() {
               ))}
             </div>
             <p className="text-slate-300 text-sm leading-relaxed italic mb-3">
-              "I cut my labor cost from 38% to 31% in six weeks. Strata showed me exactly which shifts to trim — I never would have found it in Square alone."
+              &quot;I cut my labor cost from 38% to 31% in six weeks. Strata showed me exactly which shifts to trim — I never would have found it in Square alone.&quot;
             </p>
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-blue-600/30 flex items-center justify-center text-blue-300 text-xs font-bold">M</div>
@@ -88,11 +109,27 @@ export default function SignUpPage() {
         </div>
 
         {/* Right — Clerk sign-up */}
-        <div className="w-full md:w-auto flex flex-col items-center">
-          {/* Silently capture referral param */}
+        <div className="w-full md:w-auto flex flex-col items-center gap-4">
+          {/* Silently capture referral param into localStorage */}
           <Suspense fallback={null}><ReferralCapture /></Suspense>
+
+          {/* Personalized referral banner */}
+          {referrerName && (
+            <div className="w-full max-w-sm bg-gradient-to-r from-blue-600/20 to-purple-600/10 border border-blue-500/30 rounded-2xl px-5 py-4 flex items-start gap-3">
+              <Gift className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-blue-200 text-sm font-semibold leading-snug">
+                  {referrerName} invited you
+                </p>
+                <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+                  Start your free 14-day trial. When you upgrade, they earn a free month — no cost to you.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Mobile logo */}
-          <div className="md:hidden mb-6 text-center">
+          <div className="md:hidden text-center">
             <span className="text-blue-500 font-bold text-2xl">Strata</span>
             <p className="text-slate-500 text-sm mt-1">14-day free trial · No credit card required</p>
           </div>
