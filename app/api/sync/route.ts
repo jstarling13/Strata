@@ -34,10 +34,18 @@ export async function POST(req: NextRequest) {
     // Pass lastSyncAt so attribution runs incrementally (only new transactions)
     await runAttribution(org.id, dataSource.lastSyncAt ?? undefined);
 
+    const isFirstSync = !dataSource.lastSyncAt;
+
     await prisma.dataSource.update({
       where: { id: dataSource.id },
       data: { lastSyncAt: new Date(), status: "active" },
     });
+
+    // Fire data-ready email on first successful sync
+    if (isFirstSync) {
+      const { maybeSendDataReadyEmail } = await import("@/lib/agents/data-ready");
+      maybeSendDataReadyEmail(org.id).catch(console.error);
+    }
 
     return NextResponse.json({ ok: true, syncedAt: new Date() });
   } catch (err: any) {

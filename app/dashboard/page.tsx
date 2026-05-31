@@ -21,6 +21,7 @@ import SmartSummary from "@/components/dashboard/SmartSummary";
 import OpportunityBanner from "@/components/dashboard/OpportunityBanner";
 import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import { RepeatRateBenchmark, LaborPctBenchmark } from "@/components/dashboard/BenchmarkBadge";
+import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 
 function DashboardInner() {
   const [data, setData] = useState<any>(null);
@@ -56,11 +57,7 @@ function DashboardInner() {
   useEffect(() => { load(); }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!data) return null;

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, TrendingUp, TrendingDown, BarChart2, Download } from "lucide-react";
+import { TrendingUp, TrendingDown, BarChart2, Download } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
@@ -38,8 +39,30 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-3.5 w-56" />
+          </div>
+          <Skeleton className="h-9 w-36 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-20" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

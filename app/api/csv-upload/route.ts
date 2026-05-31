@@ -80,8 +80,24 @@ Return only the JSON object.`;
     update: { status: "active", lastSyncAt: new Date() },
   });
 
-  // Normalize in background
-  normalizeCSVData(org.id, rows, columnMap as any).catch(console.error);
+  // Normalize then run attribution in background
+  (async () => {
+    try {
+      await normalizeCSVData(org.id, rows, columnMap as any);
+      const { runAttribution } = await import("@/lib/agents/attribution");
+      await runAttribution(org.id);
+      await prisma.dataSource.update({
+        where: { id: `csv_${org.id}` },
+        data: { lastSyncAt: new Date(), status: "active" },
+      });
+      // Fire data-ready email on first successful sync
+      const { maybeSendDataReadyEmail } = await import("@/lib/agents/data-ready");
+      await maybeSendDataReadyEmail(org.id);
+    } catch (e) {
+      console.error("CSV attribution failed:", e);
+      await prisma.dataSource.update({ where: { id: `csv_${org.id}` }, data: { status: "error" } });
+    }
+  })();
 
   return NextResponse.json({ ok: true, rowCount: rows.length });
 }

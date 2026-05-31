@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import StaffTable from "@/components/dashboard/StaffTable";
 import StaffComparison from "@/components/dashboard/StaffComparison";
 import StaffLeaderboard from "@/components/dashboard/StaffLeaderboard";
 import { formatPct, cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface StaffRow {
   id: string;
@@ -48,8 +49,39 @@ export default function StaffPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-3.5 w-64" />
+          </div>
+          <Skeleton className="h-9 w-32 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-20" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-800">
+            <Skeleton className="h-4 w-36" />
+          </div>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-5 py-3.5 border-b border-slate-800 last:border-0">
+              <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-32" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <Skeleton className="h-5 w-12 rounded-full" />
+              <Skeleton className="h-3.5 w-16" />
+              <Skeleton className="h-3.5 w-14" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

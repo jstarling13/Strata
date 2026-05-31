@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Check, Building2, Target, Database, CreditCard, ExternalLink, Bell, Gift, Copy } from "lucide-react";
+import { Loader2, Check, Building2, Target, Database, CreditCard, ExternalLink, Bell, Gift, Copy, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,9 @@ export default function SettingsPage() {
   const [alertEmail, setAlertEmail] = useState(true);
   const [alertThreshold, setAlertThreshold] = useState(20);
   const [copiedReferral, setCopiedReferral] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncDone, setSyncDone] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -66,6 +69,26 @@ export default function SettingsPage() {
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "https://strata.ai";
   const referralUrl = org ? `${appUrl}/sign-up?ref=${org.id}` : "";
+
+  async function syncNow() {
+    setSyncing(true);
+    setSyncError(null);
+    setSyncDone(false);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sync failed");
+      setSyncDone(true);
+      // Refresh last sync time
+      fetch("/api/settings").then((r) => r.json()).then((d) => setDataSource(d.dataSource));
+      setTimeout(() => setSyncDone(false), 4000);
+    } catch (e: any) {
+      setSyncError(e.message);
+      setTimeout(() => setSyncError(null), 6000);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function copyReferral() {
     if (!referralUrl) return;
@@ -275,25 +298,54 @@ export default function SettingsPage() {
         </div>
         <div className="p-6">
           {dataSource ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-slate-100 font-medium capitalize">{dataSource.type}</div>
-                <div className="text-slate-500 text-xs mt-0.5">
-                  {dataSource.lastSyncAt
-                    ? `Last synced ${new Date(dataSource.lastSyncAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                    : "Never synced"}
-                  {" · "}
-                  <span className={dataSource.status === "active" ? "text-green-500" : "text-red-500"}>
-                    {dataSource.status}
-                  </span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-slate-100 font-medium capitalize">{dataSource.type}</div>
+                  <div className="text-slate-500 text-xs mt-0.5">
+                    {dataSource.lastSyncAt
+                      ? `Last synced ${new Date(dataSource.lastSyncAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                      : "Never synced"}
+                    {" · "}
+                    <span className={dataSource.status === "active" ? "text-green-500" : "text-red-500"}>
+                      {dataSource.status}
+                    </span>
+                  </div>
                 </div>
+                <Link
+                  href="/onboarding?step=2"
+                  className="text-sm text-slate-400 hover:text-slate-300 flex items-center gap-1 transition-colors"
+                >
+                  Change <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
               </div>
-              <Link
-                href="/onboarding?step=2"
-                className="text-sm text-slate-400 hover:text-slate-300 flex items-center gap-1 transition-colors"
-              >
-                Change <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
+              {dataSource.type !== "csv" && (
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={syncNow}
+                    disabled={syncing}
+                    className={cn(
+                      "flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl transition-colors",
+                      syncDone
+                        ? "bg-green-600/20 text-green-400 border border-green-500/20"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50"
+                    )}
+                  >
+                    {syncing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : syncDone ? (
+                      <Check className="w-3.5 h-3.5" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    )}
+                    {syncing ? "Syncing…" : syncDone ? "Synced!" : "Sync now"}
+                  </button>
+                  {syncError && (
+                    <span className="text-red-400 text-xs">{syncError}</span>
+                  )}
+                  <span className="text-slate-600 text-xs">Pull latest data from {dataSource.type}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-between">
